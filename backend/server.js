@@ -11,16 +11,12 @@ const { requestLogger, errors } = require("./middleware/security");
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
 const NODE_ENV = process.env.NODE_ENV || "development";
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || "";
 const allowedOrigins = (process.env.CORS_ORIGINS ||
   "https://uniquenetworkbd.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",").map((origin) => origin.trim()).filter(Boolean);
 
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
   throw new Error("PORT must be a valid TCP port.");
-}
-if (NODE_ENV === "production" && Buffer.byteLength(ADMIN_API_KEY, "utf8") < 32) {
-  throw new Error("Production requires ADMIN_API_KEY with at least 32 bytes.");
 }
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, "data", "database.sqlite");
