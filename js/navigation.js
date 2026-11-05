@@ -32,7 +32,8 @@ function renderNavigation(){
 }
 function initializeNavigation(){
   const root=document.getElementById("navigation-root");if(root?.dataset.initialized==="true")return;
-  const elements=renderNavigation();if(!elements)return;const {aside,backdrop,close}=elements,toggle=document.getElementById("menu-toggle");\n  initializeAuthControls();
+  const elements=renderNavigation();if(!elements)return;const {aside,backdrop,close}=elements,toggle=document.getElementById("menu-toggle");
+  initializeAuthControls();
   const setOpen=open=>{aside.classList.toggle("is-open",open);aside.classList.toggle("is-closed",!open);backdrop.classList.toggle("is-visible",open);document.body.classList.toggle("nav-open",open);toggle?.setAttribute("aria-expanded",String(open));};
   toggle?.addEventListener("click",event=>{event.stopPropagation();setOpen(!aside.classList.contains("is-open"));});
   close.addEventListener("click",()=>setOpen(false));backdrop.addEventListener("click",()=>setOpen(false));
