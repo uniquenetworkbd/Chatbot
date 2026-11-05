@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from "./config.js";
+import { getApiBaseUrl } from "./config.js";\nimport { authHeaders } from "./auth-session.js";
 
 const make = (tag, text, cls) => {
   const node = document.createElement(tag);
@@ -66,7 +66,7 @@ export function initializeNetworkConfig(root) {
   routerIp.input.inputMode = "decimal";
   const routerUser = field("API Username", "username", "text", { required: true, autocomplete: "username", placeholder: "Router API user", maxlength: 128 });
   const routerPass = field("API Password", "password", "password", { required: true, autocomplete: "new-password", placeholder: "Password is not saved", maxlength: 512 });
-  const routerPort = field("API Port", "port", "select", { choices: [["8729", "8729 · API-SSL (recommended)"], ["8728", "8728 · API (unencrypted)"]], value: "8729" });
+  const routerPort = field("API Port", "port", "select", { choices: [["8729", "8729 · API-SSL (recommended)"], ["8728", "8728 · API (unencrypted, reachability only)"]], value: "8729" });
   for (const item of [routerIp, routerUser, routerPass, routerPort]) routerGrid.append(item.wrap);
   const routerStatus = statusCard("MikroTik connection");
   const routerButton = make("button", "Test router TCP connection", "network-test-button");
@@ -82,7 +82,7 @@ export function initializeNetworkConfig(root) {
   oltIp.input.inputMode = "decimal";
   const community = field("SNMP Read Community", "community", "password", { required: true, autocomplete: "off", placeholder: "Community is not saved", maxlength: 128 });
   const snmpVersion = field("SNMP Version", "snmpVersion", "select", { choices: [["v2c", "SNMP v2c"], ["v3", "SNMP v3 (additional credentials required)"]] });
-  const snmpPort = field("SNMP Port", "port", "number", { value: "161", min: 1, max: 65535, required: true });
+  const snmpPort = field("SNMP Agent Port", "port", "number", { value: "161", min: 1, max: 65535, required: true });
   for (const item of [oltIp, community, snmpVersion, snmpPort]) oltGrid.append(item.wrap);
   const oltStatus = statusCard("OLT SNMP connection");
   const oltButton = make("button", "Test SNMP connection", "network-test-button");
@@ -93,7 +93,7 @@ export function initializeNetworkConfig(root) {
   v3Hint.hidden = true;
   oltPanel.append(oltGrid, v3Hint, oltButton, oltNotice, oltStatus.card);
 
-  root.replaceChildren(make("h2", "Router & OLT Integration"), intro, security, admin, routerPanel, oltPanel);
+  root.replaceChildren(make("h2", "Router & OLT Integration"), intro, security, routerPanel, oltPanel);
 
   async function request(payload, button, notice, status) {
     const base = getApiBaseUrl();
@@ -117,7 +117,7 @@ export function initializeNetworkConfig(root) {
     try {
       const response = await fetch(base + "/api/network/connect-test", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + keyField.input.value },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
         cache: "no-store",
         credentials: "omit"
