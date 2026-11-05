@@ -1,6 +1,7 @@
 const express = require("express");
 const net = require("node:net");
 const dgram = require("node:dgram");
+const tls = require("node:tls");
 const { randomInt } = require("node:crypto");
 const { requireAdmin } = require("../middleware/security");
 const rateLimit = require("express-rate-limit");
@@ -32,6 +33,112 @@ function tcpProbe(host, port) {
     socket.once("connect", () => finish({ online: true, check: "tcp_reachable" }));
     socket.once("timeout", () => finish({ online: false, check: "timeout" }));
     socket.once("error", error => finish({ online: false, check: error.code === "ECONNREFUSED" ? "connection_refused" : "unreachable" }));
+  });
+}
+function encodeApiLength(length) {
+  if (length < 0x80) return Buffer.from([length]);
+  if (length < 0x4000) return Buffer.from([(length >> 8) | 0x80, length & 0xff]);
+  if (length < 0x200000) return Buffer.from([(length >> 16) | 0xc0, (length >> 8) & 0xff, length & 0xff]);
+  if (length < 0x10000000) return Buffer.from([(length >> 24) | 0xe0, (length >> 16) & 0xff, (length >> 8) & 0xff, length & 0xff]);
+  const b = Buffer.alloc(5); b[0] = 0xf0; b.writeUInt32BE(length, 1); return b;
+}
+function decodeApiLength(buffer, offset) {
+  if (offset >= buffer.length) return null;
+  const first = buffer[offset];
+  if (first < 0x80) return { length: first, next: offset + 1 };
+  if ((first & 0xc0) === 0x80) {
+    if (offset + 2 > buffer.length) return null;
+    return { length: ((first & 0x3f) << 8) | buffer[offset + 1], next: offset + 2 };
+  }
+  if ((first & 0xe0) === 0xc0) {
+    if (offset + 3 > buffer.length) return null;
+    return { length: ((first & 0x1f) << 16) | (buffer[offset + 1] << 8) | buffer[offset + 2], next: offset + 3 };
+  }
+  if ((first & 0xf0) === 0xe0) {
+    if (offset + 4 > buffer.length) return null;
+    return { length: ((first & 0x0f) * 0x1000000) + (buffer[offset + 1] << 16) + (buffer[offset + 2] << 8) + buffer[offset + 3], next: offset + 4 };
+  }
+  if (first === 0xf0) {
+    if (offset + 5 > buffer.length) return null;
+    return { length: buffer.readUInt32BE(offset + 1), next: offset + 5 };
+  }
+  throw new Error("Invalid RouterOS API length prefix");
+}
+function writeApiSentence(socket, words) {
+  const chunks = [];
+  for (const word of words) {
+    const bytes = Buffer.from(word, "utf8");
+    chunks.push(encodeApiLength(bytes.length), bytes);
+  }
+  chunks.push(Buffer.from([0]));
+  socket.write(Buffer.concat(chunks));
+}
+function createApiSentenceReader(socket) {
+  let buffer = Buffer.alloc(0), failure = null;
+  const waiters = [];
+  socket.on("data", chunk => { buffer = Buffer.concat([buffer, chunk]); while (waiters.length) waiters.shift()(); });
+  socket.on("error", error => { failure = error; while (waiters.length) waiters.shift()(); });
+  return function nextSentence(timeoutMs = TIMEOUT_MS) {
+    return new Promise((resolve, reject) => {
+      let timer;
+      const attempt = () => {
+        if (failure) { clearTimeout(timer); reject(failure); return; }
+        let offset = 0; const words = [];
+        while (offset < buffer.length) {
+          const decoded = decodeApiLength(buffer, offset);
+          if (!decoded) break;
+          if (decoded.length === 0) {
+            buffer = buffer.subarray(decoded.next);
+            clearTimeout(timer); resolve(words); return;
+          }
+          if (decoded.next + decoded.length > buffer.length) break;
+          words.push(buffer.subarray(decoded.next, decoded.next + decoded.length).toString("utf8"));
+          offset = decoded.next + decoded.length;
+        }
+        if (offset > 0) buffer = buffer.subarray(offset);
+        timer = setTimeout(() => {
+          const index = waiters.indexOf(attempt); if (index >= 0) waiters.splice(index, 1);
+          reject(new Error("RouterOS API response timeout"));
+        }, timeoutMs);
+        waiters.push(attempt);
+      };
+      attempt();
+    });
+  };
+}
+function parseApiAttributes(words) {
+  const result = {};
+  for (const word of words) if (word.startsWith("=")) {
+    const split = word.indexOf("=", 1);
+    if (split > 1) result[word.slice(1, split)] = word.slice(split + 1);
+  }
+  return result;
+}
+async function routerApiSslProbe(host, port, username, password) {
+  return new Promise((resolve, reject) => {
+    const socket = tls.connect({ host, port, rejectUnauthorized: true, minVersion: "TLSv1.2", ...(net.isIP(host) ? {} : { servername: host }) });
+    const timer = setTimeout(() => { socket.destroy(); reject(new Error("RouterOS API-SSL handshake timeout")); }, TIMEOUT_MS * 3);
+    socket.once("error", error => { clearTimeout(timer); reject(new Error(error.code === "CERT_HAS_EXPIRED" || error.code === "DEPTH_ZERO_SELF_SIGNED_CERT" || error.code === "UNABLE_TO_VERIFY_LEAF_SIGNATURE" ? "Router API-SSL certificate is not trusted" : "Router API-SSL connection failed")); });
+    socket.once("secureConnect", async () => {
+      try {
+        const nextSentence = createApiSentenceReader(socket);
+        writeApiSentence(socket, ["/login", "=name=" + username, "=password=" + password]);
+        let reply = await nextSentence();
+        if (reply.includes("!trap") || reply.includes("!fatal")) throw new Error("RouterOS authentication failed");
+        if (!reply.includes("!done")) throw new Error("RouterOS login response was not recognized");
+        writeApiSentence(socket, ["/system/resource/print"]);
+        const records = [];
+        for (let i = 0; i < 20; i++) {
+          reply = await nextSentence();
+          if (reply.includes("!trap") || reply.includes("!fatal")) throw new Error("RouterOS resource query was rejected");
+          if (reply.includes("!re")) records.push(parseApiAttributes(reply));
+          if (reply.includes("!done")) break;
+        }
+        const info = records[0] || {};
+        clearTimeout(timer); socket.end();
+        resolve({ online: true, authentication: "authenticated", check: "routeros_api_ssl_authenticated", model: info["board-name"] || "RouterOS device", version: info.version || "unknown" });
+      } catch (error) { clearTimeout(timer); socket.destroy(); reject(error); }
+    });
   });
 }
 function berLength(n) {
@@ -132,15 +239,32 @@ router.post("/connect-test", requireAdmin, probeLimiter, async (req, res) => {
     if (!cleanString(body.username, 128) || !cleanString(body.password, 512)) {
       return res.status(400).json({ error: "Router username and password are required for configuration validation." });
     }
-    // Credentials are deliberately not used for this reachability probe, logged, or persisted.
-    const result = await tcpProbe(host, port);
-    return res.status(200).json({
-      deviceType, status: result.online ? "online" : "offline",
-      check: result.check, latencyMs: result.latencyMs,
-      authentication: "not_tested",
-      model: "RouterOS model is unavailable from a TCP-only probe",
-      notice: "TCP reachability only. RouterOS credentials were not transmitted to the router and were not stored. Use API-SSL (8729); authenticated RouterOS API integration is a separate step."
-    });
+    if (port === 8728) {
+      const result = await tcpProbe(host, port);
+      return res.status(200).json({
+        deviceType, status: result.online ? "online" : "offline",
+        check: result.check, latencyMs: result.latencyMs,
+        authentication: "not_tested",
+        model: "RouterOS model is unavailable from a plain TCP probe",
+        notice: "Port 8728 is unencrypted. Credentials were not transmitted or stored; only TCP reachability was checked. Use API-SSL port 8729 for authenticated tests."
+      });
+    }
+    try {
+      const started = Date.now();
+      const result = await routerApiSslProbe(host, port, body.username, body.password);
+      return res.status(200).json({
+        deviceType, status: "online", check: result.check,
+        authentication: result.authentication, latencyMs: Date.now() - started,
+        model: result.model, version: result.version,
+        notice: "TLS certificate validation and RouterOS API login succeeded. Credentials were used for this request only and were not logged or persisted."
+      });
+    } catch (error) {
+      return res.status(200).json({
+        deviceType, status: "offline", check: "routeros_api_ssl_failed",
+        authentication: "failed_or_unavailable", model: "RouterOS identity unavailable",
+        notice: error.message
+      });
+    }
   }
 
   const version = body.snmpVersion;
