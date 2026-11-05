@@ -26,11 +26,14 @@ The default local database path is `backend/data/database.sqlite`. Production mu
 |---|---|---|
 | GET | `/api/health` | Public; SQLite quick-check, migration version and storage metadata |
 | POST | `/api/chat-logs` | Public; validated and rate-limited |
-| GET | `/api/chat-logs?limit=50&sessionId=...` | Bearer admin key |
+| GET | `/api/chat-logs?limit=50&sessionId=...` | Admin session token |
 | POST | `/api/interactions` | Public; validated and rate-limited |
 | GET | `/api/interactions?limit=50` | Bearer admin key |
 | GET | `/api/network/status` | Bearer admin key; simulated or allowlisted TCP status |
-| POST | `/api/network/connect-test` | Bearer admin key; ephemeral Router TCP or SNMPv2c test |
+| POST | `/api/auth/login` | Public; rate-limited username/password login; returns short-lived bearer token |
+| GET | `/api/auth/session` | Admin session; verifies token and expiry |
+| POST | `/api/auth/logout` | Admin session; revokes token |
+| POST | `/api/network/connect-test` | Admin session; ephemeral RouterOS API-SSL or SNMPv2c test |
 | GET | `/api/admin/analytics?limit=50` | Bearer admin key; aggregate metrics and unanswered queries |
 
 Chat-log body:
@@ -84,13 +87,7 @@ TRUST_PROXY=0
 
 Set `TRUST_PROXY=1` only when the hosting platform's network path is confirmed to contain exactly one trusted proxy hop. Incorrect proxy trust can allow spoofed client IPs and weaken IP rate limits.
 
-Generate a secret locally with Node.js:
-
-```bash
-node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
-```
-
-Store it only in the host's secret/environment settings. Never place it in `js/config.js`, frontend HTML, or a public repository.
+Create the first administrator after deploying the backend and applying migrations. Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` only in the shell for the seed command; choose a unique password of at least 14 bytes. The seed script stores only a salted scrypt hash and refuses to overwrite an existing username. Never commit or persist the bootstrap password.
 
 ## Persistent storage and SQLite
 
@@ -111,4 +108,4 @@ The frontend page is available at `layout.html?page=network-config`. It submits 
 - **OLT SNMPv2c:** sends a standard SNMP GET for `sysDescr.0` over UDP/161 and waits up to 4.5 seconds. It validates the response envelope/community and displays the returned `sysDescr` string. Community strings are not logged or persisted, but SNMPv2c transmits them without encryption.
 - **SNMPv3:** the UI exposes the version choice but returns `not_tested` until security username, security level, authentication and privacy parameters are added. It does not silently downgrade to v2c.
 
-Use only devices and management addresses you administer. This endpoint is admin-authenticated but can initiate outbound probes from the backend network; restrict backend egress/firewall access to the management subnets. The UI clears router password and SNMP community fields after each test attempt. Admin key and all form values remain only in page memory.
+Use only devices and management addresses you administer. This endpoint is admin-authenticated but can initiate outbound probes from the backend network; restrict backend egress/firewall access to the management subnets. The UI clears router password and SNMP community fields after each test attempt. The bearer session token is held in `sessionStorage` for the current tab and expires after 8 hours. Device credentials are held only in page memory for one test request.
