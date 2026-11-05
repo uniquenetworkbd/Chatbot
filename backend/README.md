@@ -86,7 +86,19 @@ TRUST_PROXY=0
 
 Set `TRUST_PROXY=1` only when the hosting platform's network path is confirmed to contain exactly one trusted proxy hop. Incorrect proxy trust can allow spoofed client IPs and weaken IP rate limits.
 
-Create the first administrator after deploying the backend and applying migrations. Set `ADMIN_USERNAME` and `ADMIN_PASSWORD` only in the shell for the seed command; choose a unique password of at least 14 bytes. The seed script stores only a salted scrypt hash and refuses to overwrite an existing username. Never commit or persist the bootstrap password.
+Create the first administrator after deploying the backend and applying migrations. In a Bash shell, run:
+
+```bash
+cd backend
+read -r -p "Admin username: " ADMIN_USERNAME
+read -r -s -p "Admin password: " ADMIN_PASSWORD
+echo
+export ADMIN_USERNAME ADMIN_PASSWORD
+npm run seed:admin
+unset ADMIN_PASSWORD
+```
+
+Choose a unique password of at least 14 bytes. The seed script stores only a salted scrypt hash and refuses to overwrite an existing username. Never commit or persist the bootstrap password.
 
 ## Persistent storage and SQLite
 
