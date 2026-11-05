@@ -1,4 +1,5 @@
 import { searchKnowledge, FALLBACK_RESPONSE, getKnowledgeStats } from "./knowledge/index.js";
+import { initializeNavigation } from "./navigation.js";
 
 const STORAGE_KEY = "unbd-chat-history-v1";
 const MAX_HISTORY = 60;
@@ -88,6 +89,7 @@ function initializeChat() {
 }
 
 function start() {
+  initializeNavigation();
   initializeChat();
 }
 
