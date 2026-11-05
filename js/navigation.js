@@ -1,6 +1,7 @@
 import { getKnowledgeStats } from "./knowledge/index.js";
 import { initializeToolsPage } from "./tools-page.js";
-import { initializeAdminAnalytics } from "./admin-analytics.js";\nimport { initializeAuthControls, ensureAuthenticated } from "./auth-session.js";
+import { initializeAdminAnalytics } from "./admin-analytics.js";
+import { initializeAuthControls, ensureAuthenticated } from "./auth-session.js";
 
 const NAV_ITEMS = [
   {id:"chat",label:"চ্যাট",icon:"◈",href:"./index.html",page:"chat"},
