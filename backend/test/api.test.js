@@ -30,7 +30,7 @@ test("network connect-test requires admin auth and validates target ports", asyn
   assert.equal((await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(payload) })).status, 401);
   const invalid = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+key}, body:JSON.stringify({...payload,port:22}) });
   assert.equal(invalid.status, 400);
-  const plain = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+key}, body:JSON.stringify(payload) });
+  const plain = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+key}, body:JSON.stringify({...payload,port:8728}) });
   const plainData = await plain.json();
   assert.equal(plain.status, 200);
   assert.equal(plainData.authentication, "not_tested");
