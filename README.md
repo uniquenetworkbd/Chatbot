@@ -47,7 +47,7 @@ After hosting the backend, edit `js/config.js`:
 window.UNBD_API_BASE_URL = "https://YOUR-BACKEND-HOST";
 ```
 
-Use the HTTPS origin only; do not append `/api`. Never expose `ADMIN_API_KEY` in browser code. Backend `CORS_ORIGINS` must include the exact origin `https://uniquenetworkbd.github.io`.
+Use the HTTPS origin only; do not append `/api`. Never expose admin passwords or bearer session tokens in browser code. Backend `CORS_ORIGINS` must include the exact origin `https://uniquenetworkbd.github.io`.
 
 ## Production backend hosting checklist
 
@@ -55,7 +55,7 @@ Use the HTTPS origin only; do not append `/api`. Never expose `ADMIN_API_KEY` in
 2. Install command: `npm install`; start command: `npm start`.
 3. Attach a persistent disk/volume at a provider-supported mount path such as `/var/data`.
 4. Set `DB_PATH=/var/data/database.sqlite`; do not store production SQLite on ephemeral application storage.
-5. Set a random `ADMIN_API_KEY` with at least 32 bytes in the host's secret settings.
+5. After the backend is running, create the first admin from the backend shell using `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `npm run seed:admin` (password minimum 14 bytes).
 6. Set `NODE_ENV=production` and `CORS_ORIGINS=https://uniquenetworkbd.github.io`.
 7. Keep `TRUST_PROXY=0` unless the host's proxy topology is confirmed and exactly configured.
 8. Verify `GET /api/health` returns HTTP 200 with `database: "ok"`.
@@ -73,17 +73,20 @@ The application displays an admin login gate before initializing chat, tools, an
 
 | Method | Route | Access |
 |---|---|---|
-| POST | `/api/auth/login` | Public, rate-limited login; issues bearer session |\n| GET | `/api/auth/session` | Authenticated session check |\n| POST | `/api/auth/logout` | Authenticated logout and token revocation |\n| GET | `/api/health` | Public health, schema and storage metadata |
-| POST | `/api/chat-logs` | Public validated, rate-limited, idempotent write |
-| GET | `/api/chat-logs` | Bearer `ADMIN_API_KEY` |
-| POST | `/api/interactions` | Public validated, rate-limited write |
+| POST | `/api/auth/login` | Public, rate-limited login; issues bearer session |
+| GET | `/api/auth/session` | Authenticated session check |
+| POST | `/api/auth/logout` | Authenticated logout and token revocation |
+| GET | `/api/health` | Public health, schema and storage metadata |
+| POST | `/api/chat-logs` | Authenticated, validated, rate-limited, idempotent write |
+| GET | `/api/chat-logs` | Authenticated admin session |
+| POST | `/api/interactions` | Authenticated, validated, rate-limited write |
 | GET | `/api/interactions` | Bearer `ADMIN_API_KEY` |
 
 ## Extension modules
 
 - **Network Tools:** `layout.html?page=tools` shows the local knowledge index, a guided ISP troubleshooting wizard, and backend network status. With `NETWORK_TARGETS_JSON=[]` the API clearly labels demo router/OLT and bandwidth values as simulated. When targets are configured, the API performs allowlisted TCP connect checks only; it does not claim ICMP ping, RouterOS login, OLT optical levels, or real throughput. Example target configuration is documented in `backend/.env.example`.
 - **Troubleshooting wizard:** browser-only decision trees for slow internet, ONU LOS and billing mismatch. The wizard does not change router/ONU configuration or perform billing operations.
-- **Admin Analytics:** `layout.html?page=analytics` requests `/api/admin/analytics` with `Authorization: Bearer <session-token>`; the login gateway issues a short-lived session token stored in `sessionStorage`. The API returns aggregate chat/session/interaction counts, categories, daily totals and fallback/unanswered messages. Never publish the key in frontend code.
+- **Admin Analytics:** `layout.html?page=analytics` requests `/api/admin/analytics` with `Authorization: Bearer <session-token>`; the login gateway issues a short-lived session token stored in `sessionStorage`. The API returns aggregate chat/session/interaction counts, categories, daily totals and fallback/unanswered messages. Never publish the session token or password in frontend code.
 - **Banglish synonyms:** `js/knowledge/synonyms.js` expands common Banglish/Bengali phrases into intent tokens before the existing local IDF-weighted search. It is deterministic and does not call an AI service.
 - **Router & OLT Config:** `layout.html?page=network-config` provides an on-demand configuration form. Values are not persisted in browser storage or SQLite. MikroTik API-SSL on port 8729 performs TLS-validated RouterOS login and reads `/system/resource/print`; port 8728 is reachability-only and does not transmit credentials. OLT supports an SNMPv2c `sysDescr.0` response check; SNMPv3 is explicitly marked not tested pending its security credential fields. See `backend/README.md` for security boundaries and firewall guidance.
 
@@ -101,4 +104,4 @@ Workflow `.github/workflows/pages.yml` tests modules and knowledge search, stage
 
 ## Project scope
 
-Local knowledge assistant with optional logging API; not an AI inference service, billing system, customer account portal or authenticated support system.
+Local knowledge assistant with optional logging API; not an AI inference service, billing system, customer account portal or multi-role IAM system.
