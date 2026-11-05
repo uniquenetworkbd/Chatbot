@@ -1,4 +1,5 @@
-import { getApiBaseUrl } from "./config.js";\nimport { authHeaders } from "./auth-session.js";
+import { getApiBaseUrl } from "./config.js";
+import { authHeaders } from "./auth-session.js";
 
 const make = (tag, text, cls) => {
   const node = document.createElement(tag);
@@ -53,10 +54,6 @@ export function initializeNetworkConfig(root) {
   root.dataset.networkConfigReady = "true";
   const intro = make("p", "Enter device details only for an on-demand connection test. Form values are held in this page's memory and are not saved to browser storage.", "page-intro");
   const security = make("div", "Admin authentication is required. Router username/password are never written to logs or SQLite. Router test currently checks TCP reachability only; it does not authenticate to RouterOS.", "network-security-note");
-  const admin = make("section", undefined, "network-config-panel");
-  admin.append(make("h2", "Backend authorization"));
-  const keyField = field("ADMIN_API_KEY (session only)", "adminKey", "password", { required: true, autocomplete: "off", placeholder: "Enter backend admin key" });
-  admin.append(keyField.wrap);
 
   const routerPanel = make("section", undefined, "network-config-panel");
   routerPanel.append(make("div", undefined, "network-panel-heading"));
@@ -106,11 +103,6 @@ export function initializeNetworkConfig(root) {
       const localHost = ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
       if (parsed.protocol !== "https:" && !localHost) throw new Error("Device credentials may only be sent to an HTTPS backend (localhost is allowed for development).");
     } catch (error) { notice.textContent = error.message; return; }
-    if (!keyField.input.value) {
-      notice.textContent = "Enter the admin API key to authorize this test.";
-      keyField.input.focus();
-      return;
-    }
     button.disabled = true;
     button.textContent = "Testing connection…";
     notice.textContent = "Request in progress. Secret fields will be cleared after this attempt.";
