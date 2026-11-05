@@ -26,6 +26,7 @@ jobs:
           node-version: 22
       - name: Test pass 1 - paths, modules, search, fallback and safe rendering
         run: |
+          for file in js/app.js js/navigation.js js/knowledge/*.js; do node --experimental-default-type=module --check "$file"; done
           node --experimental-default-type=module --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import { access, readFile } from 'node:fs/promises';
@@ -71,6 +72,7 @@ jobs:
           NODE
       - name: Test pass 2 - repeat regression verification
         run: |
+          for file in js/app.js js/navigation.js js/knowledge/*.js; do node --experimental-default-type=module --check "$file"; done
           node --experimental-default-type=module --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import { access, readFile } from 'node:fs/promises';
