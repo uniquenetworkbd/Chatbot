@@ -1,4 +1,4 @@
-const {test,before,after}=require("node:test"),assert=require("node:assert/strict"),{spawn}=require("node:child_process"),fs=require("node:fs"),os=require("node:os"),path=require("node:path"),net=require("node:net"),{randomBytes,scryptSync}=require("node:crypto"),{openDatabase}=require("../database/connection");let child,base,temp,authToken;const username="testadmin",password="correct-horse-battery-staple";function port(){return new Promise((resolve,reject)=>{const s=net.createServer();s.once("error",reject);s.listen(0,"127.0.0.1",()=>{const p=s.address().port;s.close(()=>resolve(p));});});}async function ready(){for(let i=0;i<80;i++){try{const r=await fetch(base+"/api/health");if(r.ok)return;}catch{}await new Promise(r=>setTimeout(r,250));}throw Error("API did not start");}before(async()=>{temp=fs.mkdtempSync(path.join(os.tmpdir(),"unbd-api-"));const dbPath=path.join(temp,"test.sqlite");const setup=openDatabase(dbPath);const salt=randomBytes(16);const hash=["scrypt","16384","8","1",salt.toString("hex"),scryptSync(password,salt,64,{N:16384,r:8,p:1,maxmem:64*1024*1024}).toString("hex")].join("$");setup.db.prepare("INSERT INTO admins(username,password_hash) VALUES(?,?)").run(username,hash);setup.db.close();const p=await port();base="http://127.0.0.1:"+p;child=spawn(process.execPath,["server.js"],{cwd:path.resolve(__dirname,".."),env:{...process.env,PORT:String(p),HOST:"127.0.0.1",DB_PATH:dbPath,NODE_ENV:"test",NETWORK_TARGETS_JSON:"[]"},stdio:"ignore"});await ready();const login=await fetch(base+"/api/auth/login",{method:"POST",headers:{"content-type":"application/json",authorization:"Bearer "+authToken},body:JSON.stringify({username,password})});assert.equal(login.status,200);authToken=(await login.json()).token;});after(()=>{if(child&&child.exitCode===null)child.kill("SIGTERM");if(temp)fs.rmSync(temp,{recursive:true,force:true});});
+const {test,before,after}=require("node:test"),assert=require("node:assert/strict"),{spawn}=require("node:child_process"),fs=require("node:fs"),os=require("node:os"),path=require("node:path"),net=require("node:net"),{randomBytes,scryptSync}=require("node:crypto"),{openDatabase}=require("../database/connection");let child,base,temp,authToken;const username="testadmin",password="correct-horse-battery-staple";function port(){return new Promise((resolve,reject)=>{const s=net.createServer();s.once("error",reject);s.listen(0,"127.0.0.1",()=>{const p=s.address().port;s.close(()=>resolve(p));});});}async function ready(){for(let i=0;i<80;i++){try{const r=await fetch(base+"/api/health");if(r.ok)return;}catch{}await new Promise(r=>setTimeout(r,250));}throw Error("API did not start");}before(async()=>{temp=fs.mkdtempSync(path.join(os.tmpdir(),"unbd-api-"));const dbPath=path.join(temp,"test.sqlite");const setup=openDatabase(dbPath);const salt=randomBytes(16);const hash=["scrypt","16384","8","1",salt.toString("hex"),scryptSync(password,salt,64,{N:16384,r:8,p:1,maxmem:64*1024*1024}).toString("hex")].join("$");setup.db.prepare("INSERT INTO admins(username,password_hash) VALUES(?,?)").run(username,hash);setup.db.close();const p=await port();base="http://127.0.0.1:"+p;child=spawn(process.execPath,["server.js"],{cwd:path.resolve(__dirname,".."),env:{...process.env,PORT:String(p),HOST:"127.0.0.1",DB_PATH:dbPath,NODE_ENV:"test",NETWORK_TARGETS_JSON:"[]"},stdio:"ignore"});await ready();const login=await fetch(base+"/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({username,password})});assert.equal(login.status,200);authToken=(await login.json()).token;});after(()=>{if(child&&child.exitCode===null)child.kill("SIGTERM");if(temp)fs.rmSync(temp,{recursive:true,force:true});});
 test("auth session validates and logout revokes token",async()=>{const session=await fetch(base+"/api/auth/session",{headers:{authorization:"Bearer "+authToken}});assert.equal(session.status,200);const logout=await fetch(base+"/api/auth/logout",{method:"POST",headers:{authorization:"Bearer "+authToken}});assert.equal(logout.status,200);assert.equal((await fetch(base+"/api/auth/session",{headers:{authorization:"Bearer "+authToken}})).status,401);const again=await fetch(base+"/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({username,password})});assert.equal(again.status,200);authToken=(await again.json()).token;});
 test("invalid login credentials are rejected",async()=>{const response=await fetch(base+"/api/auth/login",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({username,password:"wrong-password"})});assert.equal(response.status,401);});
 test("health includes migration and disk metadata",async()=>{const r=await fetch(base+"/api/health"),d=await r.json();assert.equal(r.status,200);assert.equal(d.database,"ok");assert.equal(d.schemaVersion,3);assert.ok(d.storage.fileBytes>=0);});
@@ -17,7 +17,7 @@ test("network status is explicitly simulated when no targets are configured", as
   assert.equal(data.bandwidth.mode, "simulated");
   assert.ok(data.notice.includes("ডেমো"));
 });
-test("admin analytics requires bearer key and returns unanswered queries", async () => {
+test("admin analytics requires session and returns unanswered queries", async () => {
   assert.equal((await fetch(base + "/api/admin/analytics")).status, 401);
   const response = await fetch(base + "/api/admin/analytics", { headers:{authorization:"Bearer "+authToken} });
   const data = await response.json();
@@ -30,13 +30,13 @@ test("network connect-test requires admin auth and validates target ports", asyn
   const endpoint = base + "/api/network/connect-test";
   const payload = { deviceType:"router", ipAddress:"192.0.2.10", username:"test", password:"never-log-this", port:8729 };
   assert.equal((await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify(payload) })).status, 401);
-  const invalid = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+authToken,authorization:"Bearer "+authToken}, body:JSON.stringify({...payload,port:22}) });
+  const invalid = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+authToken}, body:JSON.stringify({...payload,port:22}) });
   assert.equal(invalid.status, 400);
-  const plain = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+authToken,authorization:"Bearer "+authToken}, body:JSON.stringify({...payload,port:8728}) });
+  const plain = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+authToken}, body:JSON.stringify({...payload,port:8728}) });
   const plainData = await plain.json();
   assert.equal(plain.status, 200);
   assert.equal(plainData.authentication, "not_tested");
-  const v3 = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+authToken,authorization:"Bearer "+authToken}, body:JSON.stringify({deviceType:"olt",ipAddress:"192.0.2.20",port:161,snmpVersion:"v3"}) });
+  const v3 = await fetch(endpoint, { method:"POST", headers:{"content-type":"application/json",authorization:"Bearer "+authToken}, body:JSON.stringify({deviceType:"olt",ipAddress:"192.0.2.20",port:161,snmpVersion:"v3"}) });
   const data = await v3.json();
   assert.equal(v3.status, 422);
   assert.equal(data.check, "snmp_v3_not_configured");
@@ -48,7 +48,7 @@ test("write requests are rate-limited by IP and session", async () => {
   for (let i = 1; i <= 13; i++) {
     last = await fetch(base + "/api/interactions", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", authorization: "Bearer " + authToken },
       body: JSON.stringify({
         clientEventId: "rate-event-" + String(i).padStart(4, "0"),
         eventType: "rate_test",
