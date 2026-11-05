@@ -1,0 +1,1 @@
+const express=require("express"),{controllers}=require("../controllers/api-controllers"),{requireAdmin}=require("../middleware/security");module.exports=deps=>{const r=express.Router(),c=controllers(deps);r.post("/",c.createInteraction);r.get("/",requireAdmin,c.listInteractions);return r;};
