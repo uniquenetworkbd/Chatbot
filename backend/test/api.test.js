@@ -5,3 +5,22 @@ test("client event ID makes chat write idempotent",async()=>{const p={clientEven
 test("interaction writes persist and admin reads are protected",async()=>{const p={clientEventId:"event-int-0001",eventType:"chat_submitted",sessionId:"test-session-01",details:{source:"test"}},w=await fetch(base+"/api/interactions",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(p)});assert.equal(w.status,201);assert.equal((await fetch(base+"/api/interactions")).status,401);const r=await fetch(base+"/api/interactions",{headers:{authorization:"Bearer "+key}}),d=await r.json();assert.equal(r.status,200);assert.equal(d.count,1);});
 test("invalid fields and unexpected keys are rejected",async()=>{for(const body of [{sessionId:"test-session-01",userMessage:"",botResponse:"x"},{sessionId:"test-session-01",userMessage:"x",botResponse:"y",isAdmin:true}]){const r=await fetch(base+"/api/chat-logs",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});assert.equal(r.status,400);}});
 test("Pages CORS origin allowed and unknown origin rejected",async()=>{const good=await fetch(base+"/api/chat-logs",{method:"OPTIONS",headers:{origin:"https://uniquenetworkbd.github.io","access-control-request-method":"POST","access-control-request-headers":"content-type"}});assert.equal(good.status,204);assert.equal(good.headers.get("access-control-allow-origin"),"https://uniquenetworkbd.github.io");const bad=await fetch(base+"/api/chat-logs",{method:"OPTIONS",headers:{origin:"https://unapproved.example","access-control-request-method":"POST","access-control-request-headers":"content-type"}});assert.equal(bad.status,403);});
+
+test("write requests are rate-limited by IP and session", async () => {
+  const sessionId = "rate-session-0001";
+  let last;
+  for (let i = 1; i <= 13; i++) {
+    last = await fetch(base + "/api/interactions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        clientEventId: "rate-event-" + String(i).padStart(4, "0"),
+        eventType: "rate_test",
+        sessionId,
+        details: { attempt: i }
+      })
+    });
+    if (i < 13) assert.equal(last.status, 201);
+  }
+  assert.equal(last.status, 429);
+});
