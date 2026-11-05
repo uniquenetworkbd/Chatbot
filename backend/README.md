@@ -36,3 +36,8 @@ npm test
 The browser client posts each locally generated user/assistant exchange to `POST /api/chat-logs` and checks `GET /api/health`. The bridge is best-effort: local knowledge search and localStorage history continue to work when the API is unavailable.
 
 When the API is hosted at a separate public origin, set `window.UNBD_API_BASE_URL` to that HTTPS origin before loading `js/app.js`. Configure `CORS_ORIGINS` with the exact frontend origin `https://uniquenetworkbd.github.io` plus any explicitly trusted development origins. Never expose `ADMIN_API_KEY` in frontend code. GitHub Pages serves static assets only; deploy this Node.js API to a separate Node-capable host with persistent disk storage for SQLite.
+
+
+## Frontend voice accessibility
+
+The frontend's optional speech-to-text control uses the browser Web Speech API when the browser exposes `SpeechRecognition` or `webkitSpeechRecognition`. Recognition is configured for Bengali (`bn-BD`) and requires browser microphone permission; unsupported browsers disable the control. The frontend does not upload microphone audio to this API. Once recognized, the transcript is placed in the normal chat input and the existing best-effort `POST /api/chat-logs` bridge continues to receive only the user text and locally generated reply. Message read-aloud uses the browser's `window.speechSynthesis` API and is not an API-server feature.
