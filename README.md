@@ -79,6 +79,7 @@ A provider's free tier may sleep, impose quotas, or charge for persistent disks.
 - **Troubleshooting wizard:** browser-only decision trees for slow internet, ONU LOS and billing mismatch. The wizard does not change router/ONU configuration or perform billing operations.
 - **Admin Analytics:** `layout.html?page=analytics` requests `/api/admin/analytics` with `Authorization: Bearer ADMIN_API_KEY`; the key is typed by the operator and remains in page memory only. The API returns aggregate chat/session/interaction counts, categories, daily totals and fallback/unanswered messages. Never publish the key in frontend code.
 - **Banglish synonyms:** `js/knowledge/synonyms.js` expands common Banglish/Bengali phrases into intent tokens before the existing local IDF-weighted search. It is deterministic and does not call an AI service.
+- **Router & OLT Config:** `layout.html?page=network-config` provides an on-demand configuration form. Values are not persisted in browser storage or SQLite. Router tests currently establish TCP reachability only (no RouterOS authentication); OLT supports an SNMPv2c `sysDescr.0` response check; SNMPv3 is explicitly marked not tested pending its security credential fields. See `backend/README.md` for security boundaries and firewall guidance.
 
 ## Offline/online sync
 
