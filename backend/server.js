@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
+const rateLimit = require("express-rate-limit");
 const path = require("node:path");
 
 const { openDatabase } = require("./database/connection");
@@ -63,7 +63,7 @@ const writeSessionLimiter = rateLimit({
   windowMs: 60_000,
   limit: 12,
   keyGenerator(req) {
-    const ipKey = ipKeyGenerator(req.ip);
+    const ipKey = req.ip || req.socket.remoteAddress || "unknown-ip";
     const sessionKey = typeof req.body?.sessionId === "string"
       ? req.body.sessionId.slice(0, 100)
       : "anonymous";
