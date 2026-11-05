@@ -48,7 +48,7 @@ jobs:
             ['ইন্টারনেট নেই রাউটার ONU restart','ONU/MC'],
             ['MikroTik BDCOM OLT','MikroTik'],
             ['bKash Nagad ONE Bank payment','bKash'],
-            ['TrxID payment verify','Transaction ID'],
+            ['TrxID verify','Transaction ID'],
             ['ফেসবুক অ্যাকাউন্ট রিকভারি','Account Recovery'],
             ['ফিশিং প্রতারণা','ফিশিং'],
             ['black hat hacking','Black-hat']
@@ -87,7 +87,7 @@ jobs:
             ['ইন্টারনেট নেই রাউটার ONU restart','ONU/MC'],
             ['MikroTik BDCOM OLT','MikroTik'],
             ['bKash Nagad ONE Bank payment','bKash'],
-            ['TrxID payment verify','Transaction ID'],
+            ['TrxID verify','Transaction ID'],
             ['ফেসবুক অ্যাকাউন্ট রিকভারি','Account Recovery'],
             ['ফিশিং প্রতারণা','ফিশিং'],
             ['black hat hacking','Black-hat']
