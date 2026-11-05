@@ -29,7 +29,7 @@ The default local database path is `backend/data/database.sqlite`. Production mu
 | GET | `/api/chat-logs?limit=50&sessionId=...` | Bearer admin key |
 | POST | `/api/interactions` | Public; validated and rate-limited |
 | GET | `/api/interactions?limit=50` | Bearer admin key |
-| GET | `/api/network/status` | Public; simulated or allowlisted TCP status |
+| GET | `/api/network/status` | Bearer admin key; simulated or allowlisted TCP status |
 | GET | `/api/admin/analytics?limit=50` | Bearer admin key; aggregate metrics and unanswered queries |
 
 Chat-log body:
