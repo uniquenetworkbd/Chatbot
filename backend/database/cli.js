@@ -1,0 +1,1 @@
+const path=require("node:path"),{openDatabase}=require("./connection"),s=openDatabase(process.env.DB_PATH||path.join(__dirname,"..","data","database.sqlite"));console.log(JSON.stringify({database:s.dbPath,migrations:s.migrations},null,2));s.db.close();
