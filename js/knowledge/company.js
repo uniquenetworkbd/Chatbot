@@ -1,5 +1,11 @@
 export const companyKnowledge = [
   {
+    id: "greeting",
+    category: "company",
+    keywords: ["হ্যালো", "হ্যালো!", "আসসালামু আলাইকুম", "সালাম", "শুভ সকাল", "শুভ সন্ধ্যা", "hello", "hi", "good morning", "good evening"],
+    response: `আসসালামু আলাইকুম। Unique Network BD-এর সহায়তা সহকারীতে আপনাকে স্বাগতম। ইন্টারনেট, বিলিং, অফিসের সময়সূচি অথবা ডিজিটাল নিরাপত্তা সম্পর্কে কী জানতে চান?`
+  },
+  {
     id: "company-overview",
     category: "company",
     keywords: ["unique network bd", "unique network", "কোম্পানি", "প্রতিষ্ঠান", "আইএসপি", "isp", "মাইজদী", "নোয়াখালী", "ব্রডব্যান্ড", "hacking helpline", "হ্যাকিং হেল্পলাইন", "পরিচিতি"],
