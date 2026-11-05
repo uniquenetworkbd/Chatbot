@@ -96,4 +96,6 @@ function start() {
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
 else start();
 
-export { initializeChat, sendFallback: () => FALLBACK_RESPONSE };
+const sendFallback = () => FALLBACK_RESPONSE;
+
+export { initializeChat, sendFallback };
