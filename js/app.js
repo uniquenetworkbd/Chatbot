@@ -1,6 +1,7 @@
 import "./config.js";
 import { searchKnowledge, FALLBACK_RESPONSE, getKnowledgeStats, DOCUMENTS } from "./knowledge/index.js";
-import { initializeNavigation } from "./navigation.js";\nimport { ensureAuthenticated, authHeaders } from "./auth-session.js";
+import { initializeNavigation } from "./navigation.js";
+import { ensureAuthenticated, authHeaders } from "./auth-session.js";
 const STORAGE_KEY = "unbd-chat-history-v1";
 const MAX_HISTORY = 60;
 const SESSION_KEY = "unbd-chat-session-v1";
