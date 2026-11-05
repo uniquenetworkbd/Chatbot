@@ -38,8 +38,8 @@ jobs:
           const app = await readFile('js/app.js','utf8');
           const nav = await readFile('js/navigation.js','utf8');
           assert.match(app, /textContent = text/);
-          assert.match(app, /import \\{ initializeNavigation \\} from \"\\.\\/navigation\\.js\"/);
-          assert.match(app, /initializeNavigation\\(\\)/);
+          assert.ok(app.includes('import { initializeNavigation } from "./navigation.js";'));
+          assert.ok(app.includes('initializeNavigation();'));
           assert.match(app, /localStorage/);
           assert.match(nav, /document\.addEventListener\("click"/);
           assert.match(nav, /layout\.html\?page=/);
@@ -82,8 +82,8 @@ jobs:
           const app = await readFile('js/app.js','utf8');
           const nav = await readFile('js/navigation.js','utf8');
           assert.match(app, /textContent = text/);
-          assert.match(app, /import \\{ initializeNavigation \\} from \"\\.\\/navigation\\.js\"/);
-          assert.match(app, /initializeNavigation\\(\\)/);
+          assert.ok(app.includes('import { initializeNavigation } from "./navigation.js";'));
+          assert.ok(app.includes('initializeNavigation();'));
           assert.match(app, /localStorage/);
           assert.match(nav, /document\.addEventListener\("click"/);
           assert.match(nav, /layout\.html\?page=/);
