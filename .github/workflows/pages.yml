@@ -61,7 +61,7 @@ jobs:
           const fallback = searchKnowledge('আজকের আবহাওয়া');
           assert.equal(fallback.matched, false);
           assert.equal(fallback.response, FALLBACK_RESPONSE);
-          assert.equal(getKnowledgeStats().documents, 11);
+          assert.equal(getKnowledgeStats().documents, 12);
           console.log('PASS: 12 paths, HTML/CSS references, ES module imports, 10 knowledge cases, fallback and source safety checks');
           NODE
       - name: Test pass 2 - repeat regression verification
@@ -100,7 +100,7 @@ jobs:
           const fallback = searchKnowledge('আজকের আবহাওয়া');
           assert.equal(fallback.matched, false);
           assert.equal(fallback.response, FALLBACK_RESPONSE);
-          assert.equal(getKnowledgeStats().documents, 11);
+          assert.equal(getKnowledgeStats().documents, 12);
           console.log('PASS: second independent regression pass completed');
           NODE
   build:
