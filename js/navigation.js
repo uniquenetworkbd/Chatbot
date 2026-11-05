@@ -69,6 +69,8 @@ function renderNavigation() {
 }
 
 function initializeNavigation() {
+  const root = document.getElementById("navigation-root");
+  if (root?.dataset.initialized === "true") return;
   const elements = renderNavigation();
   if (!elements) return;
   const { aside, backdrop, close } = elements;
