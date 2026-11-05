@@ -63,11 +63,17 @@ Use the HTTPS origin only; do not append `/api`. Never expose `ADMIN_API_KEY` in
 
 A provider's free tier may sleep, impose quotas, or charge for persistent disks. Confirm current terms; do not assume free persistent SQLite storage. Run one backend instance for this SQLite architecture.
 
+## Secure administrator access
+
+The application displays an admin login gate before initializing chat, tools, analytics or configuration views. The backend stores admin passwords only as salted scrypt hashes (`admins.password_hash`), issues random 8-hour bearer sessions, stores only SHA-256 token hashes in SQLite, and revokes sessions on logout. First-admin creation is an explicit operator action: `cd backend`, export `ADMIN_USERNAME` and `ADMIN_PASSWORD` in the shell, then run `npm run seed:admin`. The seed script requires a password of at least 14 bytes and never prints it. `sessionStorage` contains only the bearer token, not the password. All protected API reads/writes and network probes require a valid session.
+
+**Hosting boundary:** GitHub Pages is static hosting. The JavaScript login gate controls the rendered UI but cannot make static HTML/JS files private or prevent a determined visitor from downloading them. Backend data and operations are server-enforced behind session authentication. If the requirement is to hide the actual static page assets from unauthenticated HTTP clients, serve the frontend through the authenticated Express host (or a server-side access gateway) instead of public GitHub Pages.
+
 ## API routes
 
 | Method | Route | Access |
 |---|---|---|
-| GET | `/api/health` | Public health, schema and storage metadata |
+| POST | `/api/auth/login` | Public, rate-limited login; issues bearer session |\n| GET | `/api/auth/session` | Authenticated session check |\n| POST | `/api/auth/logout` | Authenticated logout and token revocation |\n| GET | `/api/health` | Public health, schema and storage metadata |
 | POST | `/api/chat-logs` | Public validated, rate-limited, idempotent write |
 | GET | `/api/chat-logs` | Bearer `ADMIN_API_KEY` |
 | POST | `/api/interactions` | Public validated, rate-limited write |
@@ -77,7 +83,7 @@ A provider's free tier may sleep, impose quotas, or charge for persistent disks.
 
 - **Network Tools:** `layout.html?page=tools` shows the local knowledge index, a guided ISP troubleshooting wizard, and backend network status. With `NETWORK_TARGETS_JSON=[]` the API clearly labels demo router/OLT and bandwidth values as simulated. When targets are configured, the API performs allowlisted TCP connect checks only; it does not claim ICMP ping, RouterOS login, OLT optical levels, or real throughput. Example target configuration is documented in `backend/.env.example`.
 - **Troubleshooting wizard:** browser-only decision trees for slow internet, ONU LOS and billing mismatch. The wizard does not change router/ONU configuration or perform billing operations.
-- **Admin Analytics:** `layout.html?page=analytics` requests `/api/admin/analytics` with `Authorization: Bearer ADMIN_API_KEY`; the key is typed by the operator and remains in page memory only. The API returns aggregate chat/session/interaction counts, categories, daily totals and fallback/unanswered messages. Never publish the key in frontend code.
+- **Admin Analytics:** `layout.html?page=analytics` requests `/api/admin/analytics` with `Authorization: Bearer <session-token>`; the login gateway issues a short-lived session token stored in `sessionStorage`. The API returns aggregate chat/session/interaction counts, categories, daily totals and fallback/unanswered messages. Never publish the key in frontend code.
 - **Banglish synonyms:** `js/knowledge/synonyms.js` expands common Banglish/Bengali phrases into intent tokens before the existing local IDF-weighted search. It is deterministic and does not call an AI service.
 - **Router & OLT Config:** `layout.html?page=network-config` provides an on-demand configuration form. Values are not persisted in browser storage or SQLite. MikroTik API-SSL on port 8729 performs TLS-validated RouterOS login and reads `/system/resource/print`; port 8728 is reachability-only and does not transmit credentials. OLT supports an SNMPv2c `sysDescr.0` response check; SNMPv3 is explicitly marked not tested pending its security credential fields. See `backend/README.md` for security boundaries and firewall guidance.
 
@@ -87,7 +93,7 @@ With the API origin configured, chat-log writes enter a bounded local retry queu
 
 ## Security and monitoring
 
-Helmet, exact-origin CORS, a 16 KB JSON limit, allowlisted fields, bounded text, control-character rejection, API/IP/session rate limits, constant-time admin token comparison, structured request latency/status logs, SQLite quick-check/storage metadata and graceful WAL checkpoint on shutdown. Rate-limit state is in-memory and per process; do not horizontally scale this SQLite deployment.
+Helmet, exact-origin CORS, a 16 KB JSON limit, allowlisted fields, bounded text, control-character rejection, API/IP/session rate limits, hashed admin sessions, scrypt password hashes with constant-time verification, login/session expiry and logout revocation, structured request latency/status logs, SQLite quick-check/storage metadata and graceful WAL checkpoint on shutdown. Rate-limit state is in-memory and per process; do not horizontally scale this SQLite deployment.
 
 ## GitHub Pages
 
