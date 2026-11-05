@@ -82,7 +82,6 @@ app.use("/api/auth", require("./routes/auth")(dependencies));\napp.use("/api/hea
 app.use("/api/chat-logs", require("./routes/chat-logs")(dependencies));
 app.use("/api/interactions", require("./routes/interactions")(dependencies));
 app.use("/api/network", require("./routes/network")());
-app.use("/api/network", require("./routes/network-config")());
 app.use("/api/admin/analytics", require("./routes/admin-analytics")(dependencies));
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
