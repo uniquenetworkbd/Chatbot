@@ -53,7 +53,7 @@ export function initializeNetworkConfig(root) {
   if (!root || root.dataset.networkConfigReady === "true") return;
   root.dataset.networkConfigReady = "true";
   const intro = make("p", "Enter device details only for an on-demand connection test. Form values are held in this page's memory and are not saved to browser storage.", "page-intro");
-  const security = make("div", "Admin authentication is required. Router username/password are never written to logs or SQLite. Router test currently checks TCP reachability only; it does not authenticate to RouterOS.", "network-security-note");
+  const security = make("div", "Admin authentication is required. Router username/password are never written to logs or SQLite. MikroTik API-SSL performs a TLS-validated RouterOS login and reads system resource details. Port 8728 is reachability-only; credentials are never sent over unencrypted TCP.", "network-security-note");
 
   const routerPanel = make("section", undefined, "network-config-panel");
   routerPanel.append(make("div", undefined, "network-panel-heading"));
@@ -66,7 +66,7 @@ export function initializeNetworkConfig(root) {
   const routerPort = field("API Port", "port", "select", { choices: [["8729", "8729 · API-SSL (recommended)"], ["8728", "8728 · API (unencrypted, reachability only)"]], value: "8729" });
   for (const item of [routerIp, routerUser, routerPass, routerPort]) routerGrid.append(item.wrap);
   const routerStatus = statusCard("MikroTik connection");
-  const routerButton = make("button", "Test router TCP connection", "network-test-button");
+  const routerButton = make("button", "Test Live Connection & Handshake", "network-test-button");
   routerButton.type = "button";
   const routerNotice = make("p", "", "network-form-notice");
   routerPanel.append(routerGrid, routerButton, routerNotice, routerStatus.card);
