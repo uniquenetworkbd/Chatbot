@@ -101,6 +101,11 @@ export function initializeNetworkConfig(root) {
       notice.textContent = "Backend URL is not configured. Set UNBD_API_BASE_URL in js/config.js to your self-hosted HTTPS API origin.";
       return;
     }
+    try {
+      const parsed = new URL(base);
+      const localHost = ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+      if (parsed.protocol !== "https:" && !localHost) throw new Error("Device credentials may only be sent to an HTTPS backend (localhost is allowed for development).");
+    } catch (error) { notice.textContent = error.message; return; }
     if (!keyField.input.value) {
       notice.textContent = "Enter the admin API key to authorize this test.";
       keyField.input.focus();
