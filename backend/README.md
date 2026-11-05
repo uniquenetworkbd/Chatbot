@@ -25,16 +25,16 @@ The default local database path is `backend/data/database.sqlite`. Production mu
 | Method | Route | Access |
 |---|---|---|
 | GET | `/api/health` | Public; SQLite quick-check, migration version and storage metadata |
-| POST | `/api/chat-logs` | Public; validated and rate-limited |
+| POST | `/api/chat-logs` | Admin session; validated and rate-limited |
 | GET | `/api/chat-logs?limit=50&sessionId=...` | Admin session token |
-| POST | `/api/interactions` | Public; validated and rate-limited |
-| GET | `/api/interactions?limit=50` | Bearer admin key |
-| GET | `/api/network/status` | Bearer admin key; simulated or allowlisted TCP status |
+| POST | `/api/interactions` | Admin session; validated and rate-limited |
+| GET | `/api/interactions?limit=50` | Admin session token |
+| GET | `/api/network/status` | Admin session token; simulated or allowlisted TCP status |
 | POST | `/api/auth/login` | Public; rate-limited username/password login; returns short-lived bearer token |
 | GET | `/api/auth/session` | Admin session; verifies token and expiry |
 | POST | `/api/auth/logout` | Admin session; revokes token |
 | POST | `/api/network/connect-test` | Admin session; ephemeral RouterOS API-SSL or SNMPv2c test |
-| GET | `/api/admin/analytics?limit=50` | Bearer admin key; aggregate metrics and unanswered queries |
+| GET | `/api/admin/analytics?limit=50` | Admin session token; aggregate metrics and unanswered queries |
 
 Chat-log body:
 
@@ -101,7 +101,7 @@ GitHub Pages serves static files only. It does not host this Node API or persist
 
 ## Router and OLT configuration bridge
 
-The frontend page is available at `layout.html?page=network-config`. It submits a one-time request to `POST /api/network/connect-test`; the backend requires the admin Bearer key, validates literal IP addresses and restricts RouterOS ports to 8728/8729 and SNMP to UDP 161. No device configuration is saved to SQLite or browser storage. Request logging records only method/path/status/latency and never serializes request bodies.
+The frontend page is available at `layout.html?page=network-config`. It submits a one-time request to `POST /api/network/connect-test`; the backend requires a valid admin session token, validates literal IP addresses and restricts RouterOS ports to 8728/8729 and SNMP to UDP 161. No device configuration is saved to SQLite or browser storage. Request logging records only method/path/status/latency and never serializes request bodies.
 
 - **MikroTik API-SSL (8729):** performs a TLS connection with normal certificate validation, sends the RouterOS `/login` command, then requests `/system/resource/print` to obtain board/model and RouterOS version. Username/password are used only in the request, are not logged or persisted, and are never placed in browser storage. A self-signed/untrusted TLS certificate is rejected; install a trusted certificate matching the router IP/DNS name. The legacy port 8728 is deliberately TCP-reachability-only: credentials are not sent over its unencrypted connection and authentication is reported as `not_tested`.
 - **OLT SNMPv2c:** sends a standard SNMP GET for `sysDescr.0` over UDP/161 and waits up to 4.5 seconds. It validates the response envelope/community and displays the returned `sysDescr` string. Community strings are not logged or persisted, but SNMPv2c transmits them without encryption. SNMP polling uses agent UDP/161; UDP/162 is conventionally the trap receiver port and is not the default for a GET request.
