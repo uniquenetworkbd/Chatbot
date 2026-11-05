@@ -29,6 +29,8 @@ The default local database path is `backend/data/database.sqlite`. Production mu
 | GET | `/api/chat-logs?limit=50&sessionId=...` | Bearer admin key |
 | POST | `/api/interactions` | Public; validated and rate-limited |
 | GET | `/api/interactions?limit=50` | Bearer admin key |
+| GET | `/api/network/status` | Bearer admin key; simulated or allowlisted TCP status |
+| GET | `/api/admin/analytics?limit=50` | Bearer admin key; aggregate metrics and unanswered queries |
 
 Chat-log body:
 
@@ -62,6 +64,10 @@ Interaction body:
 - Admin reads require `Authorization: Bearer ADMIN_API_KEY`; comparison uses `timingSafeEqual()`.
 - Production startup refuses an absent or shorter-than-32-byte `ADMIN_API_KEY`.
 - Rate-limit counters use the process memory store. They reset on restart and are not shared across multiple instances; run one API instance with SQLite.
+
+## Network probe configuration
+
+By default `NETWORK_TARGETS_JSON=[]` returns explicitly marked demo data. To enable real TCP reachability checks, set a server-side JSON array of fixed targets, for example `[{"id":"core-router","label":"Core Router","host":"192.0.2.1","port":8729,"type":"mikrotik"}]`. Supported types: `mikrotik`, `bdcom_olt`, `generic`. Only server-configured targets are probed; the HTTP request cannot supply a host or port. A successful TCP connection proves only that the configured port accepted a connection. It is not RouterOS authentication, ICMP ping, optical RX/TX, or bandwidth measurement. The API intentionally returns no live bandwidth figure until a real device telemetry adapter is implemented.
 
 ## Production environment
 

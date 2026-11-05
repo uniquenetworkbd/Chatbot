@@ -73,6 +73,13 @@ A provider's free tier may sleep, impose quotas, or charge for persistent disks.
 | POST | `/api/interactions` | Public validated, rate-limited write |
 | GET | `/api/interactions` | Bearer `ADMIN_API_KEY` |
 
+## Extension modules
+
+- **Network Tools:** `layout.html?page=tools` shows the local knowledge index, a guided ISP troubleshooting wizard, and backend network status. With `NETWORK_TARGETS_JSON=[]` the API clearly labels demo router/OLT and bandwidth values as simulated. When targets are configured, the API performs allowlisted TCP connect checks only; it does not claim ICMP ping, RouterOS login, OLT optical levels, or real throughput. Example target configuration is documented in `backend/.env.example`.
+- **Troubleshooting wizard:** browser-only decision trees for slow internet, ONU LOS and billing mismatch. The wizard does not change router/ONU configuration or perform billing operations.
+- **Admin Analytics:** `layout.html?page=analytics` requests `/api/admin/analytics` with `Authorization: Bearer ADMIN_API_KEY`; the key is typed by the operator and remains in page memory only. The API returns aggregate chat/session/interaction counts, categories, daily totals and fallback/unanswered messages. Never publish the key in frontend code.
+- **Banglish synonyms:** `js/knowledge/synonyms.js` expands common Banglish/Bengali phrases into intent tokens before the existing local IDF-weighted search. It is deterministic and does not call an AI service.
+
 ## Offline/online sync
 
 With the API origin configured, chat-log writes enter a bounded local retry queue and retry on network recovery and each 30-second health cycle. Client event IDs plus unique SQLite indexes prevent duplicate inserts after uncertain retries. Browser storage is best-effort, not a server backup. If the API origin is empty, local knowledge/history remain available and the status reports that the backend URL is not configured.
