@@ -64,7 +64,7 @@ test("write requests are rate-limited by IP and session", async () => {
   for (let i = 1; i <= 12; i++) {
     ipLimited = await fetch(base + "/api/interactions", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", authorization: "Bearer " + authToken },
       body: JSON.stringify({
         clientEventId: "ip-event-" + String(i).padStart(4, "0"),
         eventType: "ip_rate_test",
