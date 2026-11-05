@@ -30,3 +30,9 @@ Public write endpoints are rate-limited and validate payload sizes. Read endpoin
 npm install
 npm test
 ```
+
+## GitHub Pages frontend bridge
+
+The browser client posts each locally generated user/assistant exchange to `POST /api/chat-logs` and checks `GET /api/health`. The bridge is best-effort: local knowledge search and localStorage history continue to work when the API is unavailable.
+
+When the API is hosted at a separate public origin, set `window.UNBD_API_BASE_URL` to that HTTPS origin before loading `js/app.js`. Configure `CORS_ORIGINS` with the exact frontend origin `https://uniquenetworkbd.github.io` plus any explicitly trusted development origins. Never expose `ADMIN_API_KEY` in frontend code. GitHub Pages serves static assets only; deploy this Node.js API to a separate Node-capable host with persistent disk storage for SQLite.
