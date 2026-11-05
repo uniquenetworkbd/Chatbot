@@ -80,7 +80,7 @@ The application displays an admin login gate before initializing chat, tools, an
 | POST | `/api/chat-logs` | Authenticated, validated, rate-limited, idempotent write |
 | GET | `/api/chat-logs` | Authenticated admin session |
 | POST | `/api/interactions` | Authenticated, validated, rate-limited write |
-| GET | `/api/interactions` | Bearer `ADMIN_API_KEY` |
+| GET | `/api/interactions` | Authenticated admin session |
 
 ## Extension modules
 
