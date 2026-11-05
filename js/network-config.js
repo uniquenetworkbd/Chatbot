@@ -88,7 +88,10 @@ export function initializeNetworkConfig(root) {
   const oltButton = make("button", "Test SNMP connection", "network-test-button");
   oltButton.type = "button";
   const oltNotice = make("p", "SNMPv2c sends its community string without encryption. Use only on a trusted management network.", "network-form-notice");
-  const v3Hint = make("p", "SNMPv3 requires security username, security level and authentication/privacy credentials. This form currently supports SNMPv2c testing only; v3 selection returns a clear not-tested response.", "network-form-notice");\n  snmpVersion.input.addEventListener("change", () => { const v3 = snmpVersion.input.value === "v3"; community.input.disabled = v3; community.input.required = !v3; community.input.placeholder = v3 ? "Not used for SNMPv3" : "Community is not saved"; v3Hint.hidden = !v3; });\n  v3Hint.hidden = true;\n  oltPanel.append(oltGrid, v3Hint, oltButton, oltNotice, oltStatus.card);
+  const v3Hint = make("p", "SNMPv3 requires security username, security level and authentication/privacy credentials. This form currently supports SNMPv2c testing only; v3 selection returns a clear not-tested response.", "network-form-notice");
+  snmpVersion.input.addEventListener("change", () => { const v3 = snmpVersion.input.value === "v3"; community.input.disabled = v3; community.input.required = !v3; community.input.placeholder = v3 ? "Not used for SNMPv3" : "Community is not saved"; v3Hint.hidden = !v3; });
+  v3Hint.hidden = true;
+  oltPanel.append(oltGrid, v3Hint, oltButton, oltNotice, oltStatus.card);
 
   root.replaceChildren(make("h2", "Router & OLT Integration"), intro, security, admin, routerPanel, oltPanel);
 
