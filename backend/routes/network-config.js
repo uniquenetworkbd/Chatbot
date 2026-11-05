@@ -3,11 +3,13 @@ const net = require("node:net");
 const dgram = require("node:dgram");
 const { randomInt } = require("node:crypto");
 const { requireAdmin } = require("../middleware/security");
+const rateLimit = require("express-rate-limit");
 
 const router = express.Router();
 const TIMEOUT_MS = 4500;
 const MAX_COMMUNITY_BYTES = 128;
 const PORTS = { router: new Set([8728, 8729]), olt: new Set([161]) };
+const probeLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Network probe limit reached; retry later." } });
 
 function validIp(value) {
   return typeof value === "string" && net.isIP(value) !== 0;
@@ -66,6 +68,30 @@ function snmpV2Get(community) {
   const pdu = tlv(0xa0, Buffer.concat([berInteger(requestId), berInteger(0), berInteger(0), varbinds]));
   return tlv(0x30, Buffer.concat([berInteger(1), tlv(0x04, community), pdu]));
 }
+function readTlv(buffer, offset) {
+  if (offset + 2 > buffer.length) throw new Error("Malformed SNMP response");
+  const tag = buffer[offset++];
+  let length = buffer[offset++];
+  if (length & 0x80) { const count = length & 0x7f; if (!count || count > 4 || offset + count > buffer.length) throw new Error("Malformed SNMP length"); length = 0; for (let i = 0; i < count; i++) length = length * 256 + buffer[offset++]; }
+  const end = offset + length;
+  if (end > buffer.length) throw new Error("Truncated SNMP response");
+  return { tag, start: offset, end, next: end };
+}
+function parseSysDescr(message, expectedCommunity) {
+  const root = readTlv(message, 0); if (root.tag !== 0x30) throw new Error("Not an SNMP sequence");
+  const version = readTlv(message, root.start); if (version.tag !== 0x02 || message[version.start] !== 1) throw new Error("Unexpected SNMP version");
+  const community = readTlv(message, version.next); if (community.tag !== 0x04 || !message.subarray(community.start, community.end).equals(Buffer.from(expectedCommunity))) throw new Error("SNMP community mismatch");
+  const pdu = readTlv(message, community.next); if (pdu.tag !== 0xa2) throw new Error("Not an SNMP GetResponse");
+  const requestId = readTlv(message, pdu.start);
+  const errorStatus = readTlv(message, requestId.next); if (errorStatus.tag !== 0x02 || message[errorStatus.start] !== 0) throw new Error("SNMP agent returned an error");
+  const errorIndex = readTlv(message, errorStatus.next);
+  const varbinds = readTlv(message, errorIndex.next); if (varbinds.tag !== 0x30) throw new Error("SNMP varbind list missing");
+  const binding = readTlv(message, varbinds.start); if (binding.tag !== 0x30) throw new Error("SNMP varbind missing");
+  const oid = readTlv(message, binding.start);
+  const value = readTlv(message, oid.next);
+  if (value.tag !== 0x04) return "SNMP sysDescr returned a non-text value";
+  return message.subarray(value.start, value.end).toString("utf8").replace(/[\\u0000-\\u001f\\u007f]/g, " ").slice(0, 180) || "SNMP device responded";
+}
 function snmpProbe(host, port, community) {
   return new Promise(resolve => {
     const socket = dgram.createSocket(net.isIP(host) === 6 ? "udp6" : "udp4");
@@ -82,7 +108,8 @@ function snmpProbe(host, port, community) {
     socket.once("error", () => finish({ online: false, check: "snmp_unreachable" }));
     socket.on("message", (message, remote) => {
       if (remote.port !== port || remote.address !== host || message.length < 8 || message[0] !== 0x30) return;
-      finish({ online: true, check: "snmp_v2c_response", model: "SNMP response received" });
+      try { finish({ online: true, check: "snmp_v2c_response", model: parseSysDescr(message, community) }); }
+      catch { finish({ online: false, check: "snmp_invalid_response", model: "Invalid SNMP response" }); }
     });
     socket.send(snmpV2Get(community), port, host, error => {
       if (error) finish({ online: false, check: "snmp_send_failed" });
@@ -90,7 +117,7 @@ function snmpProbe(host, port, community) {
   });
 }
 
-router.post("/connect-test", requireAdmin, async (req, res) => {
+router.post("/connect-test", requireAdmin, probeLimiter, async (req, res) => {
   res.set("Cache-Control", "no-store");
   const body = req.body || {};
   const deviceType = body.deviceType;
