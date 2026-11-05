@@ -10,7 +10,6 @@ const { requestLogger, errors } = require("./middleware/security");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
-const NODE_ENV = process.env.NODE_ENV || "development";
 const allowedOrigins = (process.env.CORS_ORIGINS ||
   "https://uniquenetworkbd.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",").map((origin) => origin.trim()).filter(Boolean);
