@@ -17,7 +17,7 @@
       <header class="topbar">
         <button class="icon-button menu-trigger" id="menu-toggle" type="button" aria-label="মেনু খুলুন" aria-expanded="false">☰</button>
         <div><span class="eyebrow">UNIQUE NETWORK BD</span><h1>সহায়তা সহকারী</h1></div>
-        <button class="icon-button" id="theme-toggle" type="button" aria-label="থিম পরিবর্তন">◐</button>
+        <div class="topbar-actions"><span id="connection-status" class="connection-status" data-state="checking"><span class="status-dot" aria-hidden="true"></span><span> যাচাই হচ্ছে</span></span><button class="icon-button export-button" id="export-chat" type="button">Export Chat</button><button class="icon-button" id="theme-toggle" type="button" aria-label="থিম পরিবর্তন">◐</button></div>
       </header>
       <section class="chat-shell" aria-label="চ্যাট সহায়তা">
         <div class="welcome-panel" id="welcome-panel">
@@ -34,12 +34,15 @@
         </div>
         <div class="message-list" id="message-list" aria-live="polite" aria-relevant="additions"></div>
       </section>
+      <div id="typing-indicator" class="typing-indicator" aria-live="polite" aria-hidden="true"><span></span><span></span><span></span><span class="typing-label">Assistant is typing...</span></div>
+      <button id="scroll-bottom" class="scroll-bottom" type="button" aria-label="সর্বশেষ বার্তায় যান">↓</button>
       <footer class="composer-wrap">
         <form id="chat-form" class="composer">
           <label class="visually-hidden" for="message-input">আপনার প্রশ্ন লিখুন</label>
           <textarea id="message-input" rows="1" maxlength="2000" placeholder="আপনার প্রশ্ন লিখুন..." required></textarea>
           <button id="send-button" type="submit" aria-label="বার্তা পাঠান">➤</button>
         </form>
+        <div id="autocomplete-list" class="autocomplete-list" role="listbox" aria-label="সার্চ সাজেশন"></div>
         <p class="disclaimer">উত্তরগুলো প্রদত্ত স্থানীয় নলেজ বেস থেকে তৈরি হয়; এটি কোনো লাইভ AI বা অ্যাকাউন্ট-সাপোর্ট সিস্টেম নয়।</p>
       </footer>
     </main>

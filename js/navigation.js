@@ -16,6 +16,7 @@ function currentPage() {
 function renderNavigation() {
   const root = document.getElementById("navigation-root");
   if (!root) return null;
+  if (root.dataset.initialized === "true") return { aside: root.querySelector(".sidebar"), backdrop: root.querySelector(".nav-backdrop"), close: root.querySelector(".sidebar-close") };
   const page = currentPage();
   const aside = document.createElement("aside");
   aside.className = "sidebar is-closed";
@@ -63,6 +64,7 @@ function renderNavigation() {
   backdrop.id = "nav-backdrop";
   backdrop.setAttribute("aria-hidden", "true");
   root.replaceChildren(backdrop, aside);
+  root.dataset.initialized = "true";
   return { aside, backdrop, close };
 }
 

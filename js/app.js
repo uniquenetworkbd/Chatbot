@@ -1,138 +1,28 @@
-import { searchKnowledge, FALLBACK_RESPONSE, getKnowledgeStats } from "./knowledge/index.js";
+import { searchKnowledge, FALLBACK_RESPONSE, getKnowledgeStats, DOCUMENTS } from "./knowledge/index.js";
 import { initializeNavigation } from "./navigation.js";
-
 const STORAGE_KEY = "unbd-chat-history-v1";
 const MAX_HISTORY = 60;
 const SESSION_KEY = "unbd-chat-session-v1";
-// Set window.UNBD_API_BASE_URL before app.js loads when the API is hosted separately.
 const API_BASE_URL = String(window.UNBD_API_BASE_URL || "").replace(/\/+$/, "");
-
-function getSessionId() {
-  try {
-    let id = localStorage.getItem(SESSION_KEY);
-    if (!id) {
-      id = globalThis.crypto?.randomUUID?.() || "unbd-" + Date.now() + "-" + Math.random().toString(36).slice(2);
-      localStorage.setItem(SESSION_KEY, id);
-    }
-    return id;
-  } catch {
-    return "unbd-" + Date.now();
-  }
-}
-
-const SESSION_ID = getSessionId();
-
-async function sendChatLog(userMessage, botResponse, category) {
-  try {
-    const response = await fetch(API_BASE_URL + "/api/chat-logs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId: SESSION_ID, userMessage, botResponse, category: category || null }),
-      credentials: "omit",
-      keepalive: true
-    });
-    if (!response.ok) throw new Error("Chat log API returned HTTP " + response.status);
-    return true;
-  } catch (error) {
-    // Backend logging is best-effort: local chat and history must keep working offline.
-    console.warn("Backend chat logging unavailable; local chat remains active.", error);
-    return false;
-  }
-}
-
-function readHistory() {
-  try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-    return Array.isArray(value) ? value.filter((item) => item && ["user", "assistant"].includes(item.role) && typeof item.text === "string").slice(-MAX_HISTORY) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(history) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history.slice(-MAX_HISTORY))); }
-  catch { showStorageNotice(); }
-}
-
-function showStorageNotice() {
-  const notice = document.getElementById("storage-notice");
-  if (notice) return;
-  const element = document.createElement("p");
-  element.id = "storage-notice";
-  element.className = "disclaimer";
-  element.textContent = "এই ব্রাউজারে স্থানীয় ইতিহাস সংরক্ষণ করা যাচ্ছে না।";
-  document.querySelector(".composer-wrap")?.append(element);
-}
-
-function appendMessage(list, role, text) {
-  const article = document.createElement("article");
-  article.className = `message ${role}`;
-  article.dataset.role = role;
-  const meta = document.createElement("div");
-  meta.className = "message-meta";
-  meta.textContent = role === "user" ? "আপনি" : "Unique Network BD সহায়তা";
-  const body = document.createElement("div");
-  body.className = "message-body";
-  body.textContent = text;
-  article.append(meta, body);
-  list.append(article);
-  return article;
-}
-
-function initializeChat() {
-  const form = document.getElementById("chat-form");
-  const input = document.getElementById("message-input");
-  const list = document.getElementById("message-list");
-  const welcome = document.getElementById("welcome-panel");
-  if (!form || !input || !list) return;
-  let history = readHistory();
-  history.forEach((item) => appendMessage(list, item.role, item.text));
-  if (history.length) welcome?.classList.add("is-hidden");
-
-  const sendMessage = (rawText) => {
-    const text = rawText.trim();
-    if (!text) return;
-    welcome?.classList.add("is-hidden");
-    history.push({ role: "user", text, timestamp: Date.now() });
-    appendMessage(list, "user", text);
-    const result = searchKnowledge(text);
-    const response = result.matched ? result.response : FALLBACK_RESPONSE;
-    history.push({ role: "assistant", text: response, timestamp: Date.now(), category: result.category });
-    appendMessage(list, "assistant", response);
-    history = history.slice(-MAX_HISTORY);
-    saveHistory(history);
-    void sendChatLog(text, response, result.category);
-    list.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  };
-
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    sendMessage(input.value);
-    input.value = "";
-    input.focus();
-  });
-  input.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && !event.shiftKey) {
-      event.preventDefault();
-      form.requestSubmit();
-    }
-  });
-  document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => {
-    const prompt = button.getAttribute("data-prompt");
-    if (prompt) sendMessage(prompt);
-  }));
-  document.title = "Unique Network BD | Support Assistant";
-  console.info("Knowledge base ready", getKnowledgeStats());
-}
-
-function start() {
-  initializeNavigation();
-  initializeChat();
-}
-
-if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
-else start();
-
-const sendFallback = () => FALLBACK_RESPONSE;
-
-export { initializeChat, sendFallback };
+const QUICK_REPLIES = { internet:["ইন্টারনেটের গতি কম","রাউটার কীভাবে restart করব?","ONU-তে LOS লাইট জ্বলছে"], billing:["বিকাশে বিল পেমেন্ট","আমার বিল কত?","পেমেন্টের রসিদ"], company:["অফিসের ঠিকানা","যোগাযোগের নম্বর","ইন্টারনেট প্যাকেজ"], security:["ফিশিং থেকে বাঁচব কীভাবে?","অ্যাকাউন্ট সুরক্ষা","পাসওয়ার্ড পরিবর্তন"] };
+const DEFAULT_REPLIES = ["ইন্টারনেট সংযোগ সমস্যা","বিল পেমেন্ট","অফিসের ঠিকানা"];
+function getSessionId(){try{let id=localStorage.getItem(SESSION_KEY);if(!id){id=globalThis.crypto?.randomUUID?.()||"unbd-"+Date.now()+"-"+Math.random().toString(36).slice(2);localStorage.setItem(SESSION_KEY,id);}return id;}catch{return "unbd-"+Date.now();}}
+const SESSION_ID=getSessionId();
+async function sendChatLog(userMessage,botResponse,category){try{const response=await fetch(API_BASE_URL+"/api/chat-logs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId:SESSION_ID,userMessage,botResponse,category:category||null}),credentials:"omit",keepalive:true});if(!response.ok)throw new Error("Chat log API returned HTTP "+response.status);return true;}catch(error){console.warn("Backend chat logging unavailable; local chat remains active.",error);return false;}}
+function readHistory(){try{const value=JSON.parse(localStorage.getItem(STORAGE_KEY)||"[]");return Array.isArray(value)?value.filter(item=>item&&["user","assistant"].includes(item.role)&&typeof item.text==="string").slice(-MAX_HISTORY):[];}catch{return [];}}
+function saveHistory(history){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(history.slice(-MAX_HISTORY)));}catch{showStorageNotice();}}
+function showStorageNotice(){if(document.getElementById("storage-notice"))return;const element=document.createElement("p");element.id="storage-notice";element.className="disclaimer";element.textContent="এই ব্রাউজারে স্থানীয় ইতিহাস সংরক্ষণ করা যাচ্ছে না।";document.querySelector(".composer-wrap")?.append(element);}
+function appendRichText(container,value){const pattern=/(\\*\\*[^*]+\\*\\*|https?:\\/\\/[^\\s<>]+)/g;let cursor=0;for(const match of value.matchAll(pattern)){const index=match.index??0;if(index>cursor)container.append(document.createTextNode(value.slice(cursor,index)));const token=match[0];if(token.startsWith("**")){const strong=document.createElement("strong");strong.textContent=token.slice(2,-2);container.append(strong);}else{const trailing=token.match(/[),.!?;:]+$/)?.[0]||"";const href=token.slice(0,token.length-trailing.length);try{const url=new URL(href);if(["http:","https:"].includes(url.protocol)){const link=document.createElement("a");link.href=url.href;link.target="_blank";link.rel="noopener noreferrer";link.textContent=href;container.append(link);}else container.append(document.createTextNode(href));}catch{container.append(document.createTextNode(href));}if(trailing)container.append(document.createTextNode(trailing));}cursor=index+token.length;}if(cursor<value.length)container.append(document.createTextNode(value.slice(cursor)));}
+function fallbackCopy(value,done){const area=document.createElement("textarea");area.value=value;area.style.position="fixed";area.style.opacity="0";document.body.append(area);area.select();try{document.execCommand("copy");done();}catch{}area.remove();}
+function copyText(value,button){const done=()=>{const old=button.textContent;button.textContent="কপি হয়েছে";window.setTimeout(()=>button.textContent=old,1400);};if(navigator.clipboard?.writeText)navigator.clipboard.writeText(value).then(done).catch(()=>fallbackCopy(value,done));else fallbackCopy(value,done);}
+function appendMessage(list,role,text,options={}){const article=document.createElement("article");article.className="message "+role;article.dataset.role=role;const meta=document.createElement("div");meta.className="message-meta";const label=document.createElement("span");label.textContent=role==="user"?"আপনি":"Unique Network BD সহায়তা";const copy=document.createElement("button");copy.type="button";copy.className="message-copy";copy.textContent="কপি";copy.setAttribute("aria-label","এই বার্তাটি কপি করুন");copy.addEventListener("click",()=>copyText(text,copy));meta.append(label,copy);const body=document.createElement("div");body.className="message-body";appendRichText(body,text);article.append(meta,body);if(role==="assistant"&&options.suggestions?.length){const chips=document.createElement("div");chips.className="quick-replies";options.suggestions.forEach(suggestion=>{const button=document.createElement("button");button.type="button";button.className="quick-reply";button.textContent=suggestion;button.addEventListener("click",()=>options.onSuggestion?.(suggestion));chips.append(button);});article.append(chips);}list.append(article);return article;}
+function exportHistory(history){const content=history.map(item=>(item.role==="user"?"আপনি":"Unique Network BD সহায়তা")+":\\n"+item.text).join("\\n\\n");const blob=new Blob(["\\uFEFF",content],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const anchor=document.createElement("a");anchor.href=url;anchor.download="unique-network-bd-chat-"+new Date().toISOString().slice(0,10)+".txt";document.body.append(anchor);anchor.click();anchor.remove();URL.revokeObjectURL(url);}
+function initializeChat(){const form=document.getElementById("chat-form"),input=document.getElementById("message-input"),list=document.getElementById("message-list"),welcome=document.getElementById("welcome-panel"),typing=document.getElementById("typing-indicator"),autocomplete=document.getElementById("autocomplete-list"),connection=document.getElementById("connection-status"),exportButton=document.getElementById("export-chat"),scrollButton=document.getElementById("scroll-bottom");if(!form||!input||!list||form.dataset.initialized==="true")return;form.dataset.initialized="true";let history=readHistory();const scrollToLatest=()=>list.lastElementChild?.scrollIntoView({behavior:"smooth",block:"end"});const submitText=value=>{input.value=value;autocomplete?.replaceChildren();form.requestSubmit();};history.forEach(item=>appendMessage(list,item.role,item.text));if(history.length)welcome?.classList.add("is-hidden");const setTyping=visible=>{if(!typing)return;typing.classList.toggle("is-visible",visible);typing.setAttribute("aria-hidden",String(!visible));};
+const sendMessage=async rawText=>{const text=rawText.trim();if(!text)return;welcome?.classList.add("is-hidden");history.push({role:"user",text,timestamp:Date.now()});appendMessage(list,"user",text);setTyping(true);await new Promise(resolve=>window.setTimeout(resolve,260));const result=searchKnowledge(text);const response=result.matched?result.response:FALLBACK_RESPONSE;setTyping(false);const suggestions=QUICK_REPLIES[result.category]||DEFAULT_REPLIES;history.push({role:"assistant",text:response,timestamp:Date.now(),category:result.category});appendMessage(list,"assistant",response,{suggestions,onSuggestion:submitText});history=history.slice(-MAX_HISTORY);saveHistory(history);void sendChatLog(text,response,result.category);scrollToLatest();};
+const updateAutocomplete=()=>{if(!autocomplete)return;const query=input.value.trim().toLocaleLowerCase("bn");autocomplete.replaceChildren();if(query.length<2){autocomplete.classList.remove("is-visible");return;}const matches=[],seen=new Set();for(const entry of DOCUMENTS){for(const keyword of entry.keywords){if(keyword.toLocaleLowerCase("bn").includes(query)&&!seen.has(keyword)){seen.add(keyword);matches.push(keyword);}if(matches.length>=5)break;}if(matches.length>=5)break;}if(!matches.length){autocomplete.classList.remove("is-visible");return;}matches.forEach(match=>{const button=document.createElement("button");button.type="button";button.className="autocomplete-option";button.textContent=match;button.addEventListener("click",()=>submitText(match));autocomplete.append(button);});autocomplete.classList.add("is-visible");};
+const checkConnection=async()=>{if(!connection)return;connection.dataset.state="checking";connection.lastChild.textContent=" যাচাই হচ্ছে";try{const response=await fetch(API_BASE_URL+"/api/health",{method:"GET",cache:"no-store",credentials:"omit"});if(!response.ok)throw new Error("Health check HTTP "+response.status);const health=await response.json();if(health.status!=="ok"||health.database!=="ok")throw new Error("Backend health check failed");connection.dataset.state="online";connection.lastChild.textContent=" Backend সংযুক্ত";}catch{connection.dataset.state="offline";connection.lastChild.textContent=" Backend offline";}};
+form.addEventListener("submit",event=>{event.preventDefault();const value=input.value;input.value="";autocomplete?.replaceChildren();autocomplete?.classList.remove("is-visible");void sendMessage(value);input.focus();});input.addEventListener("input",updateAutocomplete);input.addEventListener("keydown",event=>{if(event.key==="Enter"&&!event.shiftKey){event.preventDefault();form.requestSubmit();}if(event.key==="Escape")autocomplete?.classList.remove("is-visible");});document.addEventListener("click",event=>{if(event.target!==input&&!autocomplete?.contains(event.target))autocomplete?.classList.remove("is-visible");});document.querySelectorAll("[data-prompt]").forEach(button=>button.addEventListener("click",()=>{const prompt=button.getAttribute("data-prompt");if(prompt)submitText(prompt);}));exportButton?.addEventListener("click",()=>exportHistory(history));window.addEventListener("scroll",()=>scrollButton?.classList.toggle("is-visible",window.scrollY>260),{passive:true});scrollButton?.addEventListener("click",()=>window.scrollTo({top:document.documentElement.scrollHeight,behavior:"smooth"}));void checkConnection();window.setInterval(checkConnection,30000);document.title="Unique Network BD | Support Assistant";console.info("Knowledge base ready",getKnowledgeStats());}
+function start(){initializeNavigation();initializeChat();}
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();
+const sendFallback=()=>FALLBACK_RESPONSE;
+export {initializeChat,sendFallback,appendMessage,sendChatLog};
