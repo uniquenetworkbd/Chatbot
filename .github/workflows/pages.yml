@@ -20,8 +20,10 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-      - name: Check available Node.js runtime
-        run: node --version
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Test pass 1 - paths, modules, search, fallback and safe rendering
         run: |
           node --experimental-default-type=module --input-type=module <<'NODE'
