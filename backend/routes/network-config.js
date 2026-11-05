@@ -82,6 +82,7 @@ function createApiSentenceReader(socket) {
     return new Promise((resolve, reject) => {
       let timer;
       const attempt = () => {
+        clearTimeout(timer);
         if (failure) { clearTimeout(timer); reject(failure); return; }
         let offset = 0; const words = [];
         while (offset < buffer.length) {
