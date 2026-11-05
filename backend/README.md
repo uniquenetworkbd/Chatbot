@@ -65,8 +65,8 @@ Interaction body:
 - Allowlisted payload fields; string length and control-character validation.
 - API-wide limit: 120 requests/minute/IP.
 - Write limits: 30 requests/minute/IP and 12 requests/minute per IP + session key.
-- Admin reads require `Authorization: Bearer ADMIN_API_KEY`; comparison uses `timingSafeEqual()`.
-- Production startup refuses an absent or shorter-than-32-byte `ADMIN_API_KEY`.
+- Admin routes require a random bearer session token whose SHA-256 hash is stored in SQLite; sessions expire after 8 hours and logout revokes the token. Passwords are stored as salted scrypt hashes and verified with `timingSafeEqual()`.
+- Login attempts are limited to 5 per IP per 15 minutes. API writes and network probes retain their own rate limits.
 - Rate-limit counters use the process memory store. They reset on restart and are not shared across multiple instances; run one API instance with SQLite.
 
 ## Network probe configuration
@@ -80,7 +80,6 @@ NODE_ENV=production
 HOST=0.0.0.0
 PORT=3000
 DB_PATH=/var/data/database.sqlite
-ADMIN_API_KEY=<at-least-32-random-bytes>
 CORS_ORIGINS=https://uniquenetworkbd.github.io
 TRUST_PROXY=0
 ```
@@ -105,7 +104,7 @@ GitHub Pages serves static files only. It does not host this Node API or persist
 The frontend page is available at `layout.html?page=network-config`. It submits a one-time request to `POST /api/network/connect-test`; the backend requires the admin Bearer key, validates literal IP addresses and restricts RouterOS ports to 8728/8729 and SNMP to UDP 161. No device configuration is saved to SQLite or browser storage. Request logging records only method/path/status/latency and never serializes request bodies.
 
 - **MikroTik API-SSL (8729):** performs a TLS connection with normal certificate validation, sends the RouterOS `/login` command, then requests `/system/resource/print` to obtain board/model and RouterOS version. Username/password are used only in the request, are not logged or persisted, and are never placed in browser storage. A self-signed/untrusted TLS certificate is rejected; install a trusted certificate matching the router IP/DNS name. The legacy port 8728 is deliberately TCP-reachability-only: credentials are not sent over its unencrypted connection and authentication is reported as `not_tested`.
-- **OLT SNMPv2c:** sends a standard SNMP GET for `sysDescr.0` over UDP/161 and waits up to 4.5 seconds. It validates the response envelope/community and displays the returned `sysDescr` string. Community strings are not logged or persisted, but SNMPv2c transmits them without encryption.
+- **OLT SNMPv2c:** sends a standard SNMP GET for `sysDescr.0` over UDP/161 and waits up to 4.5 seconds. It validates the response envelope/community and displays the returned `sysDescr` string. Community strings are not logged or persisted, but SNMPv2c transmits them without encryption. SNMP polling uses agent UDP/161; UDP/162 is conventionally the trap receiver port and is not the default for a GET request.
 - **SNMPv3:** the UI exposes the version choice but returns `not_tested` until security username, security level, authentication and privacy parameters are added. It does not silently downgrade to v2c.
 
 Use only devices and management addresses you administer. This endpoint is admin-authenticated but can initiate outbound probes from the backend network; restrict backend egress/firewall access to the management subnets. The UI clears router password and SNMP community fields after each test attempt. The bearer session token is held in `sessionStorage` for the current tab and expires after 8 hours. Device credentials are held only in page memory for one test request.
