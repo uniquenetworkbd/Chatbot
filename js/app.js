@@ -84,15 +84,6 @@ function initializeChat() {
     const prompt = button.getAttribute("data-prompt");
     if (prompt) sendMessage(prompt);
   }));
-  document.getElementById("theme-toggle")?.addEventListener("click", () => {
-    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
-    document.documentElement.dataset.theme = next;
-    try { localStorage.setItem("unbd-theme", next); } catch { /* Storage unavailable. */ }
-  });
-  try {
-    const theme = localStorage.getItem("unbd-theme");
-    if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
-  } catch { /* Default dark theme. */ }
   document.title = "Unique Network BD | Support Assistant";
   console.info("Knowledge base ready", getKnowledgeStats());
 }
