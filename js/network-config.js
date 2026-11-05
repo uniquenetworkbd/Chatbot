@@ -1,4 +1,5 @@
 import { getApiBaseUrl } from "./config.js";
+import { authHeaders } from "./auth-session.js";
 
 const make = (tag, text, cls) => {
   const node = document.createElement(tag);
@@ -52,11 +53,7 @@ export function initializeNetworkConfig(root) {
   if (!root || root.dataset.networkConfigReady === "true") return;
   root.dataset.networkConfigReady = "true";
   const intro = make("p", "Enter device details only for an on-demand connection test. Form values are held in this page's memory and are not saved to browser storage.", "page-intro");
-  const security = make("div", "Admin authentication is required. Router username/password are never written to logs or SQLite. Router test currently checks TCP reachability only; it does not authenticate to RouterOS.", "network-security-note");
-  const admin = make("section", undefined, "network-config-panel");
-  admin.append(make("h2", "Backend authorization"));
-  const keyField = field("ADMIN_API_KEY (session only)", "adminKey", "password", { required: true, autocomplete: "off", placeholder: "Enter backend admin key" });
-  admin.append(keyField.wrap);
+  const security = make("div", "Admin authentication is required. Router username/password are never written to logs or SQLite. MikroTik API-SSL performs a TLS-validated RouterOS login and reads system resource details. Port 8728 is reachability-only; credentials are never sent over unencrypted TCP.", "network-security-note");
 
   const routerPanel = make("section", undefined, "network-config-panel");
   routerPanel.append(make("div", undefined, "network-panel-heading"));
@@ -66,10 +63,10 @@ export function initializeNetworkConfig(root) {
   routerIp.input.inputMode = "decimal";
   const routerUser = field("API Username", "username", "text", { required: true, autocomplete: "username", placeholder: "Router API user", maxlength: 128 });
   const routerPass = field("API Password", "password", "password", { required: true, autocomplete: "new-password", placeholder: "Password is not saved", maxlength: 512 });
-  const routerPort = field("API Port", "port", "select", { choices: [["8729", "8729 · API-SSL (recommended)"], ["8728", "8728 · API (unencrypted)"]], value: "8729" });
+  const routerPort = field("API Port", "port", "select", { choices: [["8729", "8729 · API-SSL (recommended)"], ["8728", "8728 · API (unencrypted, reachability only)"]], value: "8729" });
   for (const item of [routerIp, routerUser, routerPass, routerPort]) routerGrid.append(item.wrap);
   const routerStatus = statusCard("MikroTik connection");
-  const routerButton = make("button", "Test router TCP connection", "network-test-button");
+  const routerButton = make("button", "Test Live Connection & Handshake", "network-test-button");
   routerButton.type = "button";
   const routerNotice = make("p", "", "network-form-notice");
   routerPanel.append(routerGrid, routerButton, routerNotice, routerStatus.card);
@@ -82,7 +79,7 @@ export function initializeNetworkConfig(root) {
   oltIp.input.inputMode = "decimal";
   const community = field("SNMP Read Community", "community", "password", { required: true, autocomplete: "off", placeholder: "Community is not saved", maxlength: 128 });
   const snmpVersion = field("SNMP Version", "snmpVersion", "select", { choices: [["v2c", "SNMP v2c"], ["v3", "SNMP v3 (additional credentials required)"]] });
-  const snmpPort = field("SNMP Port", "port", "number", { value: "161", min: 1, max: 65535, required: true });
+  const snmpPort = field("SNMP Agent Port", "port", "number", { value: "161", min: 1, max: 65535, required: true });
   for (const item of [oltIp, community, snmpVersion, snmpPort]) oltGrid.append(item.wrap);
   const oltStatus = statusCard("OLT SNMP connection");
   const oltButton = make("button", "Test SNMP connection", "network-test-button");
@@ -93,7 +90,7 @@ export function initializeNetworkConfig(root) {
   v3Hint.hidden = true;
   oltPanel.append(oltGrid, v3Hint, oltButton, oltNotice, oltStatus.card);
 
-  root.replaceChildren(make("h2", "Router & OLT Integration"), intro, security, admin, routerPanel, oltPanel);
+  root.replaceChildren(make("h2", "Router & OLT Integration"), intro, security, routerPanel, oltPanel);
 
   async function request(payload, button, notice, status) {
     const base = getApiBaseUrl();
@@ -106,18 +103,13 @@ export function initializeNetworkConfig(root) {
       const localHost = ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
       if (parsed.protocol !== "https:" && !localHost) throw new Error("Device credentials may only be sent to an HTTPS backend (localhost is allowed for development).");
     } catch (error) { notice.textContent = error.message; return; }
-    if (!keyField.input.value) {
-      notice.textContent = "Enter the admin API key to authorize this test.";
-      keyField.input.focus();
-      return;
-    }
     button.disabled = true;
     button.textContent = "Testing connection…";
     notice.textContent = "Request in progress. Secret fields will be cleared after this attempt.";
     try {
       const response = await fetch(base + "/api/network/connect-test", {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: "Bearer " + keyField.input.value },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(payload),
         cache: "no-store",
         credentials: "omit"

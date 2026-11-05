@@ -10,8 +10,6 @@ const { requestLogger, errors } = require("./middleware/security");
 
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || "0.0.0.0";
-const NODE_ENV = process.env.NODE_ENV || "development";
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY || "";
 const allowedOrigins = (process.env.CORS_ORIGINS ||
   "https://uniquenetworkbd.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",").map((origin) => origin.trim()).filter(Boolean);
@@ -19,15 +17,13 @@ const allowedOrigins = (process.env.CORS_ORIGINS ||
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
   throw new Error("PORT must be a valid TCP port.");
 }
-if (NODE_ENV === "production" && Buffer.byteLength(ADMIN_API_KEY, "utf8") < 32) {
-  throw new Error("Production requires ADMIN_API_KEY with at least 32 bytes.");
-}
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, "data", "database.sqlite");
 const database = openDatabase(dbPath);
 const logs = createLogServices(database.db);
 const dependencies = { ...database, logs };
 const app = express();
+app.locals.db = database.db;
 
 app.disable("x-powered-by");
 if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
@@ -78,11 +74,11 @@ app.use("/api/", apiLimiter);
 app.post("/api/chat-logs", writeIpLimiter, writeSessionLimiter);
 app.post("/api/interactions", writeIpLimiter, writeSessionLimiter);
 
+app.use("/api/auth", require("./routes/auth")(dependencies));
 app.use("/api/health", require("./routes/health")(dependencies));
 app.use("/api/chat-logs", require("./routes/chat-logs")(dependencies));
 app.use("/api/interactions", require("./routes/interactions")(dependencies));
 app.use("/api/network", require("./routes/network")());
-app.use("/api/network", require("./routes/network-config")());
 app.use("/api/admin/analytics", require("./routes/admin-analytics")(dependencies));
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));

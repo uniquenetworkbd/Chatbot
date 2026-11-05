@@ -1,6 +1,7 @@
 import { getKnowledgeStats } from "./knowledge/index.js";
 import { initializeToolsPage } from "./tools-page.js";
 import { initializeAdminAnalytics } from "./admin-analytics.js";
+import { initializeAuthControls } from "./auth-session.js";
 
 const NAV_ITEMS = [
   {id:"chat",label:"চ্যাট",icon:"◈",href:"./index.html",page:"chat"},
@@ -32,6 +33,7 @@ function renderNavigation(){
 function initializeNavigation(){
   const root=document.getElementById("navigation-root");if(root?.dataset.initialized==="true")return;
   const elements=renderNavigation();if(!elements)return;const {aside,backdrop,close}=elements,toggle=document.getElementById("menu-toggle");
+  initializeAuthControls();
   const setOpen=open=>{aside.classList.toggle("is-open",open);aside.classList.toggle("is-closed",!open);backdrop.classList.toggle("is-visible",open);document.body.classList.toggle("nav-open",open);toggle?.setAttribute("aria-expanded",String(open));};
   toggle?.addEventListener("click",event=>{event.stopPropagation();setOpen(!aside.classList.contains("is-open"));});
   close.addEventListener("click",()=>setOpen(false));backdrop.addEventListener("click",()=>setOpen(false));
@@ -62,5 +64,4 @@ function renderExtensionPage(){
     button.addEventListener("click",()=>{const next=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=next;try{localStorage.setItem("unbd-theme",next);}catch{}update();});content.append(button);
   }
 }
-if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",initializeNavigation,{once:true});else initializeNavigation();
 export {initializeNavigation,renderNavigation};

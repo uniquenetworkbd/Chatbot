@@ -25,13 +25,16 @@ The default local database path is `backend/data/database.sqlite`. Production mu
 | Method | Route | Access |
 |---|---|---|
 | GET | `/api/health` | Public; SQLite quick-check, migration version and storage metadata |
-| POST | `/api/chat-logs` | Public; validated and rate-limited |
-| GET | `/api/chat-logs?limit=50&sessionId=...` | Bearer admin key |
-| POST | `/api/interactions` | Public; validated and rate-limited |
-| GET | `/api/interactions?limit=50` | Bearer admin key |
-| GET | `/api/network/status` | Bearer admin key; simulated or allowlisted TCP status |
-| POST | `/api/network/connect-test` | Bearer admin key; ephemeral Router TCP or SNMPv2c test |
-| GET | `/api/admin/analytics?limit=50` | Bearer admin key; aggregate metrics and unanswered queries |
+| POST | `/api/chat-logs` | Admin session; validated and rate-limited |
+| GET | `/api/chat-logs?limit=50&sessionId=...` | Admin session token |
+| POST | `/api/interactions` | Admin session; validated and rate-limited |
+| GET | `/api/interactions?limit=50` | Admin session token |
+| GET | `/api/network/status` | Admin session token; simulated or allowlisted TCP status |
+| POST | `/api/auth/login` | Public; rate-limited username/password login; returns short-lived bearer token |
+| GET | `/api/auth/session` | Admin session; verifies token and expiry |
+| POST | `/api/auth/logout` | Admin session; revokes token |
+| POST | `/api/network/connect-test` | Admin session; ephemeral RouterOS API-SSL or SNMPv2c test |
+| GET | `/api/admin/analytics?limit=50` | Admin session token; aggregate metrics and unanswered queries |
 
 Chat-log body:
 
@@ -62,8 +65,8 @@ Interaction body:
 - Allowlisted payload fields; string length and control-character validation.
 - API-wide limit: 120 requests/minute/IP.
 - Write limits: 30 requests/minute/IP and 12 requests/minute per IP + session key.
-- Admin reads require `Authorization: Bearer ADMIN_API_KEY`; comparison uses `timingSafeEqual()`.
-- Production startup refuses an absent or shorter-than-32-byte `ADMIN_API_KEY`.
+- Admin routes require a random bearer session token whose SHA-256 hash is stored in SQLite; sessions expire after 8 hours and logout revokes the token. Passwords are stored as salted scrypt hashes and verified with `timingSafeEqual()`.
+- Login attempts are limited to 5 per IP per 15 minutes. API writes and network probes retain their own rate limits.
 - Rate-limit counters use the process memory store. They reset on restart and are not shared across multiple instances; run one API instance with SQLite.
 
 ## Network probe configuration
@@ -77,20 +80,25 @@ NODE_ENV=production
 HOST=0.0.0.0
 PORT=3000
 DB_PATH=/var/data/database.sqlite
-ADMIN_API_KEY=<at-least-32-random-bytes>
 CORS_ORIGINS=https://uniquenetworkbd.github.io
 TRUST_PROXY=0
 ```
 
 Set `TRUST_PROXY=1` only when the hosting platform's network path is confirmed to contain exactly one trusted proxy hop. Incorrect proxy trust can allow spoofed client IPs and weaken IP rate limits.
 
-Generate a secret locally with Node.js:
+Create the first administrator after deploying the backend and applying migrations. In a Bash shell, run:
 
 ```bash
-node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'))"
+cd backend
+read -r -p "Admin username: " ADMIN_USERNAME
+read -r -s -p "Admin password: " ADMIN_PASSWORD
+echo
+export ADMIN_USERNAME ADMIN_PASSWORD
+npm run seed:admin
+unset ADMIN_PASSWORD
 ```
 
-Store it only in the host's secret/environment settings. Never place it in `js/config.js`, frontend HTML, or a public repository.
+Choose a unique password of at least 14 bytes. The seed script stores only a salted scrypt hash and refuses to overwrite an existing username. Never commit or persist the bootstrap password.
 
 ## Persistent storage and SQLite
 
@@ -105,10 +113,10 @@ GitHub Pages serves static files only. It does not host this Node API or persist
 
 ## Router and OLT configuration bridge
 
-The frontend page is available at `layout.html?page=network-config`. It submits a one-time request to `POST /api/network/connect-test`; the backend requires the admin Bearer key, validates literal IP addresses and restricts RouterOS ports to 8728/8729 and SNMP to UDP 161. No device configuration is saved to SQLite or browser storage. Request logging records only method/path/status/latency and never serializes request bodies.
+The frontend page is available at `layout.html?page=network-config`. It submits a one-time request to `POST /api/network/connect-test`; the backend requires a valid admin session token, validates literal IP addresses and restricts RouterOS ports to 8728/8729 and SNMP to UDP 161. No device configuration is saved to SQLite or browser storage. Request logging records only method/path/status/latency and never serializes request bodies.
 
 - **MikroTik API-SSL (8729):** performs a TLS connection with normal certificate validation, sends the RouterOS `/login` command, then requests `/system/resource/print` to obtain board/model and RouterOS version. Username/password are used only in the request, are not logged or persisted, and are never placed in browser storage. A self-signed/untrusted TLS certificate is rejected; install a trusted certificate matching the router IP/DNS name. The legacy port 8728 is deliberately TCP-reachability-only: credentials are not sent over its unencrypted connection and authentication is reported as `not_tested`.
-- **OLT SNMPv2c:** sends a standard SNMP GET for `sysDescr.0` over UDP/161 and waits up to 4.5 seconds. It validates the response envelope/community and displays the returned `sysDescr` string. Community strings are not logged or persisted, but SNMPv2c transmits them without encryption.
+- **OLT SNMPv2c:** sends a standard SNMP GET for `sysDescr.0` over UDP/161 and waits up to 4.5 seconds. It validates the response envelope/community and displays the returned `sysDescr` string. Community strings are not logged or persisted, but SNMPv2c transmits them without encryption. SNMP polling uses agent UDP/161; UDP/162 is conventionally the trap receiver port and is not the default for a GET request.
 - **SNMPv3:** the UI exposes the version choice but returns `not_tested` until security username, security level, authentication and privacy parameters are added. It does not silently downgrade to v2c.
 
-Use only devices and management addresses you administer. This endpoint is admin-authenticated but can initiate outbound probes from the backend network; restrict backend egress/firewall access to the management subnets. The UI clears router password and SNMP community fields after each test attempt. Admin key and all form values remain only in page memory.
+Use only devices and management addresses you administer. This endpoint is admin-authenticated but can initiate outbound probes from the backend network; restrict backend egress/firewall access to the management subnets. The UI clears router password and SNMP community fields after each test attempt. The bearer session token is held in `sessionStorage` for the current tab and expires after 8 hours. Device credentials are held only in page memory for one test request.
