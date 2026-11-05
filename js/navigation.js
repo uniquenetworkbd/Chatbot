@@ -1,7 +1,7 @@
 import { getKnowledgeStats } from "./knowledge/index.js";
 import { initializeToolsPage } from "./tools-page.js";
 import { initializeAdminAnalytics } from "./admin-analytics.js";
-import { initializeAuthControls, ensureAuthenticated } from "./auth-session.js";
+import { initializeAuthControls } from "./auth-session.js";
 
 const NAV_ITEMS = [
   {id:"chat",label:"চ্যাট",icon:"◈",href:"./index.html",page:"chat"},
@@ -64,5 +64,4 @@ function renderExtensionPage(){
     button.addEventListener("click",()=>{const next=document.documentElement.dataset.theme==="light"?"dark":"light";document.documentElement.dataset.theme=next;try{localStorage.setItem("unbd-theme",next);}catch{}update();});content.append(button);
   }
 }
-if(document.body.dataset.page==="extension"){const boot=()=>{void ensureAuthenticated().then(ok=>{if(ok)initializeNavigation();});};if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot,{once:true});else boot();}
 export {initializeNavigation,renderNavigation};
