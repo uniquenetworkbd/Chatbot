@@ -7,7 +7,7 @@ export const FALLBACK_RESPONSE = "দুঃখিত, এই বিষয়টি 
 
 const DOCUMENTS = [...companyKnowledge, ...internetKnowledge, ...billingKnowledge, ...securityKnowledge];
 const STOP_WORDS = new Set(["আমি","আমার","আমাকে","আপনি","আপনার","কি","কী","কেন","কিভাবে","কীভাবে","কোথায়","কোথায়","কখন","হবে","হয়","হয়","করুন","দয়া","দয়া","করে","একটি","এবং","জন্য","the","a","an","is","are","what","how","where","when","please","can","you","your","my","to","of","for","and","in","on"]);
-const normalize = (value) => String(value ?? "").normalize("NFKC").toLocaleLowerCase("bn").replace(/[০-৯]/g, (digit) => "0123456789"["০১২৩৪৫৬৭৮৯".indexOf(digit)]).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+const normalize = (value) => String(value ?? "").normalize("NFKC").toLocaleLowerCase("bn").replace(/[০-৯]/g, (digit) => "0123456789"["০১২৩৪৫৬৭৮৯".indexOf(digit)]).replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
 
 export function tokenize(value) {
   const normalized = normalize(value);
