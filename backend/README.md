@@ -30,6 +30,7 @@ The default local database path is `backend/data/database.sqlite`. Production mu
 | POST | `/api/interactions` | Public; validated and rate-limited |
 | GET | `/api/interactions?limit=50` | Bearer admin key |
 | GET | `/api/network/status` | Bearer admin key; simulated or allowlisted TCP status |
+| POST | `/api/network/connect-test` | Bearer admin key; ephemeral Router TCP or SNMPv2c test |
 | GET | `/api/admin/analytics?limit=50` | Bearer admin key; aggregate metrics and unanswered queries |
 
 Chat-log body:
@@ -100,3 +101,14 @@ SQLite runs in WAL mode with foreign keys and busy timeout. Keep the database on
 Set `window.UNBD_API_BASE_URL` in `js/config.js` to the backend HTTPS origin only (no trailing `/api`). The frontend's bounded localStorage queue retries chat logs when online. If the URL is blank, local knowledge search and local history continue without backend logging.
 
 GitHub Pages serves static files only. It does not host this Node API or persistent SQLite database.
+
+
+## Router and OLT configuration bridge
+
+The frontend page is available at `layout.html?page=network-config`. It submits a one-time request to `POST /api/network/connect-test`; the backend requires the admin Bearer key, validates literal IP addresses and restricts RouterOS ports to 8728/8729 and SNMP to UDP 161. No device configuration is saved to SQLite or browser storage. Request logging records only method/path/status/latency and never serializes request bodies.
+
+- **MikroTik:** the current implementation tests TCP port reachability only. The submitted username/password are validated in memory, deliberately not transmitted to the router, not logged and not persisted. The response explicitly reports `authentication: not_tested`; this is not a RouterOS API login or model query. Prefer API-SSL on 8729. Port 8728 is unencrypted and should be disabled or restricted to a trusted management network.
+- **OLT SNMPv2c:** sends a standard SNMP GET for `sysDescr.0` over UDP/161 and waits up to 4.5 seconds for a response. The current summary reports that an SNMP response was received; it does not yet decode the returned vendor/model string. Community strings are not logged or persisted, but SNMPv2c transmits them without encryption.
+- **SNMPv3:** the UI exposes the version choice but returns `not_tested` until security username, security level, authentication and privacy parameters are added. It does not silently downgrade to v2c.
+
+Use only devices and management addresses you administer. This endpoint is admin-authenticated but can initiate outbound probes from the backend network; restrict backend egress/firewall access to the management subnets. The UI clears router password and SNMP community fields after each test attempt. Admin key and all form values remain only in page memory.
