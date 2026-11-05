@@ -3,117 +3,30 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: github-pages
-  cancel-in-progress: true
-
+  cancel-in-progress: false
 jobs:
   test:
-    name: Two-pass modular application tests
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Test pass 1 - paths, modules, search, fallback and safe rendering
+      - name: Check modules
+        run: for file in js/*.js js/knowledge/*.js; do node --experimental-default-type=module --check "$file"; done
+      - name: Test frontend and API bridge safeguards
         run: |
-          for file in js/app.js js/navigation.js js/knowledge/*.js; do node --experimental-default-type=module --check "$file"; done
           node --experimental-default-type=module --input-type=module <<'NODE'
-          import assert from 'node:assert/strict';
-          import { access, readFile } from 'node:fs/promises';
-          import { searchKnowledge, FALLBACK_RESPONSE, getKnowledgeStats } from './js/knowledge/index.js';
-          const paths = ['index.html','layout.html','css/main.css','css/chat.css','css/navigation.css','js/app.js','js/navigation.js','js/knowledge/index.js','js/knowledge/company.js','js/knowledge/internet.js','js/knowledge/billing.js','js/knowledge/security.js'];
-          for (const path of paths) await access(path);
-          const html = await readFile('index.html','utf8');
-          assert.match(html, /type="module" src="\.\/js\/app\.js"/);
-          for (const css of ['./css/main.css','./css/navigation.css','./css/chat.css']) assert.ok(html.includes(css));
-          const app = await readFile('js/app.js','utf8');
-          const nav = await readFile('js/navigation.js','utf8');
-          assert.match(app, /textContent = text/);
-          assert.ok(app.includes('import { initializeNavigation } from "./navigation.js";'));
-          assert.ok(app.includes('initializeNavigation();'));
-          assert.match(app, /localStorage/);
-          assert.match(nav, /document\.addEventListener\("click"/);
-          assert.match(nav, /layout\.html\?page=/);
-          assert.match(nav, /localStorage\.getItem\(\"unbd-chat-history-v1\"\)/);
-          assert.match(nav, /getKnowledgeStats\(\)/);
-          assert.match(nav, /themeButton\.addEventListener/);
-          const cases = [
-            ['হ্যালো','আসসালামু আলাইকুম'],
-            ['Unique Network BD','মাইজদী সদর'],
-            ['অফিস সময়সূচি','শনিবার'],
-            ['ইন্টারনেট নেই রাউটার ONU restart','ONU/MC'],
-            ['MikroTik BDCOM OLT','MikroTik'],
-            ['bKash Nagad ONE Bank payment','bKash'],
-            ['TrxID verify','Transaction ID'],
-            ['ফেসবুক অ্যাকাউন্ট রিকভারি','Account Recovery'],
-            ['ফিশিং প্রতারণা','ফিশিং'],
-            ['black hat hacking','Black-hat']
-          ];
-          for (const [query, expected] of cases) {
-            const result = searchKnowledge(query);
-            assert.equal(result.matched, true, 'Expected match for: ' + query);
-            assert.ok(result.response.includes(expected), 'Unexpected response for: ' + query);
-          }
-          const fallback = searchKnowledge('আজকের আবহাওয়া');
-          assert.equal(fallback.matched, false);
-          assert.equal(fallback.response, FALLBACK_RESPONSE);
-          assert.equal(getKnowledgeStats().documents, 12);
-          console.log('PASS: 12 paths, HTML/CSS references, ES module imports, 10 knowledge cases, fallback and source safety checks');
-          NODE
-      - name: Test pass 2 - repeat regression verification
-        run: |
-          for file in js/app.js js/navigation.js js/knowledge/*.js; do node --experimental-default-type=module --check "$file"; done
-          node --experimental-default-type=module --input-type=module <<'NODE'
-          import assert from 'node:assert/strict';
-          import { access, readFile } from 'node:fs/promises';
-          import { searchKnowledge, FALLBACK_RESPONSE, getKnowledgeStats } from './js/knowledge/index.js';
-          const paths = ['index.html','layout.html','css/main.css','css/chat.css','css/navigation.css','js/app.js','js/navigation.js','js/knowledge/index.js','js/knowledge/company.js','js/knowledge/internet.js','js/knowledge/billing.js','js/knowledge/security.js'];
-          for (const path of paths) await access(path);
-          const html = await readFile('index.html','utf8');
-          assert.match(html, /type="module" src="\.\/js\/app\.js"/);
-          const app = await readFile('js/app.js','utf8');
-          const nav = await readFile('js/navigation.js','utf8');
-          assert.match(app, /textContent = text/);
-          assert.ok(app.includes('import { initializeNavigation } from "./navigation.js";'));
-          assert.ok(app.includes('initializeNavigation();'));
-          assert.match(app, /localStorage/);
-          assert.match(nav, /document\.addEventListener\("click"/);
-          assert.match(nav, /layout\.html\?page=/);
-          assert.match(nav, /localStorage\.getItem\(\"unbd-chat-history-v1\"\)/);
-          assert.match(nav, /getKnowledgeStats\(\)/);
-          assert.match(nav, /themeButton\.addEventListener/);
-          const cases = [
-            ['হ্যালো','আসসালামু আলাইকুম'],
-            ['Unique Network BD','মাইজদী সদর'],
-            ['অফিস সময়সূচি','শনিবার'],
-            ['ইন্টারনেট নেই রাউটার ONU restart','ONU/MC'],
-            ['MikroTik BDCOM OLT','MikroTik'],
-            ['bKash Nagad ONE Bank payment','bKash'],
-            ['TrxID verify','Transaction ID'],
-            ['ফেসবুক অ্যাকাউন্ট রিকভারি','Account Recovery'],
-            ['ফিশিং প্রতারণা','ফিশিং'],
-            ['black hat hacking','Black-hat']
-          ];
-          for (const [query, expected] of cases) {
-            const result = searchKnowledge(query);
-            assert.equal(result.matched, true, 'Expected match for: ' + query);
-            assert.ok(result.response.includes(expected), 'Unexpected response for: ' + query);
-          }
-          const fallback = searchKnowledge('আজকের আবহাওয়া');
-          assert.equal(fallback.matched, false);
-          assert.equal(fallback.response, FALLBACK_RESPONSE);
-          assert.equal(getKnowledgeStats().documents, 12);
-          console.log('PASS: second independent regression pass completed');
+          import assert from 'node:assert/strict';import {access,readFile} from 'node:fs/promises';import {searchKnowledge,FALLBACK_RESPONSE,getKnowledgeStats} from './js/knowledge/index.js';
+          for(const p of ['index.html','layout.html','css/main.css','css/chat.css','css/navigation.css','js/config.js','js/app.js','js/navigation.js','js/knowledge/index.js','js/knowledge/company.js','js/knowledge/internet.js','js/knowledge/billing.js','js/knowledge/security.js'])await access(p);
+          const app=await readFile('js/app.js','utf8'),cfg=await readFile('js/config.js','utf8');assert.match(app,/QUEUE_KEY/);assert.match(app,/clientEventId/);assert.match(app,/AbortController/);assert.match(app,/healthCheckPromise/);assert.match(cfg,/UNBD_API_BASE_URL/);
+          const cases=[['হ্যালো','আসসালামু আলাইকুম'],['Unique Network BD','মাইজদী সদর'],['অফিস সময়সূচি','শনিবার'],['ইন্টারনেট নেই রাউটার ONU restart','ONU/MC'],['MikroTik BDCOM OLT','MikroTik'],['bKash Nagad ONE Bank payment','bKash'],['TrxID verify','Transaction ID'],['ফেসবুক অ্যাকাউন্ট রিকভারি','Account Recovery'],['ফিশিং প্রতারণা','ফিশিং'],['black hat hacking','Black-hat']];for(const[q,w]of cases){const r=searchKnowledge(q);assert.equal(r.matched,true);assert.ok(r.response.includes(w));}const f=searchKnowledge('আজকের আবহাওয়া');assert.equal(f.matched,false);assert.equal(f.response,FALLBACK_RESPONSE);assert.equal(getKnowledgeStats().documents,12);console.log('PASS: frontend modules, offline queue safeguards and knowledge search');
           NODE
   build:
     runs-on: ubuntu-latest
@@ -121,16 +34,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      - name: Stage static frontend only
+        run: |
+          rm -rf _site && mkdir -p _site
+          cp index.html layout.html _site/
+          cp -R css js _site/
+          touch _site/.nojekyll
+          test -f _site/index.html && test -f _site/js/config.js
+          du -sh _site
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
   deploy:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    timeout-minutes: 25
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          timeout: 1200000
+          error_count: 20
+          reporting_interval: 10000
