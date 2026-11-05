@@ -143,7 +143,7 @@ export function initializeNetworkConfig(root) {
   });
 
   oltButton.addEventListener("click", () => {
-    if (!oltIp.input.value.trim() || !community.input.value) {
+    if (!oltIp.input.value.trim() || (snmpVersion.input.value === "v2c" && !community.input.value)) {
       oltNotice.textContent = "OLT IP and SNMP community fields are required.";
       return;
     }
