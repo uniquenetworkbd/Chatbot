@@ -27,7 +27,7 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, "data", "database.sql
 const database = openDatabase(dbPath);
 const logs = createLogServices(database.db);
 const dependencies = { ...database, logs };
-const app = express();
+const app = express();\napp.locals.db = database.db;
 
 app.disable("x-powered-by");
 if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
@@ -78,7 +78,7 @@ app.use("/api/", apiLimiter);
 app.post("/api/chat-logs", writeIpLimiter, writeSessionLimiter);
 app.post("/api/interactions", writeIpLimiter, writeSessionLimiter);
 
-app.use("/api/health", require("./routes/health")(dependencies));
+app.use("/api/auth", require("./routes/auth")(dependencies));\napp.use("/api/health", require("./routes/health")(dependencies));
 app.use("/api/chat-logs", require("./routes/chat-logs")(dependencies));
 app.use("/api/interactions", require("./routes/interactions")(dependencies));
 app.use("/api/network", require("./routes/network")());
