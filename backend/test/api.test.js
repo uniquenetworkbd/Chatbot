@@ -7,7 +7,8 @@ test("invalid fields and unexpected keys are rejected",async()=>{for(const body 
 test("Pages CORS origin allowed and unknown origin rejected",async()=>{const good=await fetch(base+"/api/chat-logs",{method:"OPTIONS",headers:{origin:"https://uniquenetworkbd.github.io","access-control-request-method":"POST","access-control-request-headers":"content-type"}});assert.equal(good.status,204);assert.equal(good.headers.get("access-control-allow-origin"),"https://uniquenetworkbd.github.io");const bad=await fetch(base+"/api/chat-logs",{method:"OPTIONS",headers:{origin:"https://unapproved.example","access-control-request-method":"POST","access-control-request-headers":"content-type"}});assert.equal(bad.status,403);});
 
 test("network status is explicitly simulated when no targets are configured", async () => {
-  const response = await fetch(base + "/api/network/status");
+  assert.equal((await fetch(base + "/api/network/status")).status, 401);
+  const response = await fetch(base + "/api/network/status", { headers:{authorization:"Bearer "+key} });
   const data = await response.json();
   assert.equal(response.status, 200);
   assert.equal(data.mode, "simulated");
