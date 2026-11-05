@@ -3,6 +3,42 @@ import { initializeNavigation } from "./navigation.js";
 
 const STORAGE_KEY = "unbd-chat-history-v1";
 const MAX_HISTORY = 60;
+const SESSION_KEY = "unbd-chat-session-v1";
+// Set window.UNBD_API_BASE_URL before app.js loads when the API is hosted separately.
+const API_BASE_URL = String(window.UNBD_API_BASE_URL || "").replace(/\/+$/, "");
+
+function getSessionId() {
+  try {
+    let id = localStorage.getItem(SESSION_KEY);
+    if (!id) {
+      id = globalThis.crypto?.randomUUID?.() || "unbd-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+      localStorage.setItem(SESSION_KEY, id);
+    }
+    return id;
+  } catch {
+    return "unbd-" + Date.now();
+  }
+}
+
+const SESSION_ID = getSessionId();
+
+async function sendChatLog(userMessage, botResponse, category) {
+  try {
+    const response = await fetch(API_BASE_URL + "/api/chat-logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionId: SESSION_ID, userMessage, botResponse, category: category || null }),
+      credentials: "omit",
+      keepalive: true
+    });
+    if (!response.ok) throw new Error("Chat log API returned HTTP " + response.status);
+    return true;
+  } catch (error) {
+    // Backend logging is best-effort: local chat and history must keep working offline.
+    console.warn("Backend chat logging unavailable; local chat remains active.", error);
+    return false;
+  }
+}
 
 function readHistory() {
   try {
@@ -65,6 +101,7 @@ function initializeChat() {
     appendMessage(list, "assistant", response);
     history = history.slice(-MAX_HISTORY);
     saveHistory(history);
+    void sendChatLog(text, response, result.category);
     list.lastElementChild?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   };
 

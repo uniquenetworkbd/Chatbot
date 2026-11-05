@@ -85,3 +85,29 @@ test("invalid payload is rejected", async () => {
   const response = await fetch(baseUrl + "/api/chat-logs", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sessionId: "x", userMessage: "", botResponse: "answer" }) });
   assert.equal(response.status, 400);
 });
+
+
+test("GitHub Pages origin is allowed by CORS", async () => {
+  const response = await fetch(baseUrl + "/api/chat-logs", {
+    method: "OPTIONS",
+    headers: {
+      origin: "https://uniquenetworkbd.github.io",
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type"
+    }
+  });
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get("access-control-allow-origin"), "https://uniquenetworkbd.github.io");
+});
+
+test("unapproved browser origin is rejected by CORS", async () => {
+  const response = await fetch(baseUrl + "/api/chat-logs", {
+    method: "OPTIONS",
+    headers: {
+      origin: "https://unapproved.example",
+      "access-control-request-method": "POST",
+      "access-control-request-headers": "content-type"
+    }
+  });
+  assert.equal(response.status, 403);
+});

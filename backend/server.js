@@ -36,7 +36,7 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_interaction_logs_created ON interaction_logs(created_at DESC);
 `);
 
-const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:3000,http://127.0.0.1:3000")
+const allowedOrigins = (process.env.CORS_ORIGINS || "https://uniquenetworkbd.github.io,http://localhost:3000,http://127.0.0.1:3000")
   .split(",").map((value) => value.trim()).filter(Boolean);
 app.disable("x-powered-by");
 app.use(helmet());
