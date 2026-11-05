@@ -23,4 +23,20 @@ test("write requests are rate-limited by IP and session", async () => {
     if (i < 13) assert.equal(last.status, 201);
   }
   assert.equal(last.status, 429);
+
+  let ipLimited;
+  for (let i = 1; i <= 12; i++) {
+    ipLimited = await fetch(base + "/api/interactions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        clientEventId: "ip-event-" + String(i).padStart(4, "0"),
+        eventType: "ip_rate_test",
+        sessionId: "ip-session-" + String(i).padStart(4, "0"),
+        details: { attempt: i }
+      })
+    });
+    if (i < 12) assert.equal(ipLimited.status, 201);
+  }
+  assert.equal(ipLimited.status, 429);
 });
