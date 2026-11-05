@@ -1,3 +1,5 @@
+import { getKnowledgeStats } from "./knowledge/index.js";
+
 const NAV_ITEMS = [
   { id: "chat", label: "চ্যাট", icon: "◈", href: "./index.html", page: "chat" },
   { id: "history", label: "History", icon: "◷", href: "./layout.html?page=history", page: "history" },
@@ -109,20 +111,78 @@ function renderExtensionPage() {
   const page = currentPage();
   const title = document.getElementById("page-title");
   const content = document.getElementById("page-content");
-  const pages = {
-    settings: ["Settings", "এই পৃষ্ঠায় বর্তমানে কোনো অ্যাকাউন্ট বা সার্ভার সেটিংস সংযুক্ত নেই। থিম পরিবর্তন উপরের বোতাম থেকে করা যায়।"],
-    history: ["History", "এই ব্রাউজারের স্থানীয় চ্যাট হিস্ট্রি এখানে ভবিষ্যতে দেখানো যাবে। বর্তমান সংস্করণে সার্ভার-সিঙ্ক বা বহু-ডিভাইস হিস্ট্রি নেই।"],
-    tools: ["Tools", "এই সংস্করণে কোনো বাহ্যিক টুল, API বা তৃতীয় পক্ষের সংযোগ সক্রিয় নেই।"]
+  if (!content) return;
+  const heading = document.createElement("h2");
+  const paragraph = document.createElement("p");
+  const addCard = (parent, headingText, bodyText) => {
+    const card = document.createElement("section");
+    card.className = "extension-card";
+    const cardHeading = document.createElement("h3");
+    cardHeading.textContent = headingText;
+    const cardBody = document.createElement("p");
+    cardBody.textContent = bodyText;
+    card.append(cardHeading, cardBody);
+    parent.append(card);
   };
-  const selected = pages[page] || pages.settings;
-  if (title) title.textContent = selected[0];
-  if (content) {
-    const heading = document.createElement("h2");
-    heading.textContent = selected[0];
-    const paragraph = document.createElement("p");
-    paragraph.textContent = selected[1];
-    content.replaceChildren(heading, paragraph);
+
+  content.replaceChildren();
+  if (page === "history") {
+    heading.textContent = "History";
+    paragraph.textContent = "এই ব্রাউজারে সংরক্ষিত সাম্প্রতিক কথোপকথন।";
+    content.append(heading, paragraph);
+    let history = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem("unbd-chat-history-v1") || "[]");
+      if (Array.isArray(saved)) history = saved.filter((item) => item && ["user", "assistant"].includes(item.role) && typeof item.text === "string");
+    } catch {
+      paragraph.textContent = "ব্রাউজারের স্থানীয় ইতিহাস পড়া যায়নি।";
+    }
+    if (!history.length) {
+      const empty = document.createElement("p");
+      empty.className = "empty-state";
+      empty.textContent = "এখনো কোনো সংরক্ষিত কথোপকথন নেই।";
+      content.append(empty);
+    } else {
+      const list = document.createElement("div");
+      list.className = "history-list";
+      history.slice(-60).forEach((item) => {
+        const entry = document.createElement("article");
+        entry.className = "extension-card";
+        const label = document.createElement("strong");
+        label.textContent = item.role === "user" ? "আপনি" : "Unique Network BD সহায়তা";
+        const message = document.createElement("p");
+        message.textContent = item.text;
+        entry.append(label, message);
+        list.append(entry);
+      });
+      content.append(list);
+    }
+  } else if (page === "tools") {
+    heading.textContent = "Tools";
+    const stats = getKnowledgeStats();
+    paragraph.textContent = "এই অ্যাপ্লিকেশনের স্থানীয় সার্চ ও নলেজ বেসের তথ্য। কোনো বাহ্যিক API বা তৃতীয় পক্ষের সংযোগ ব্যবহৃত হচ্ছে না।";
+    content.append(heading, paragraph);
+    addCard(content, "Indexed knowledge entries", String(stats.documents) + "টি স্থানীয় জ্ঞান-নথি");
+    addCard(content, "Search categories", stats.categories.join(" · "));
+    addCard(content, "Indexed vocabulary", String(stats.indexedTerms) + "টি অনন্য সার্চ টার্ম");
+    addCard(content, "Search engine", "বাংলা Unicode-aware tokenization, keyword alignment এবং TF-IDF-ধাঁচের scoring");
+  } else {
+    heading.textContent = "Settings";
+    paragraph.textContent = "এই ব্রাউজারের জন্য ইন্টারফেস থিম নির্বাচন করুন। সেটিংটি localStorage-এ সংরক্ষিত হয়।";
+    content.append(heading, paragraph);
+    const themeButton = document.createElement("button");
+    themeButton.type = "button";
+    themeButton.className = "icon-button";
+    themeButton.textContent = document.documentElement.dataset.theme === "light" ? "Dark theme ব্যবহার করুন" : "Light theme ব্যবহার করুন";
+    themeButton.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+      document.documentElement.dataset.theme = next;
+      themeButton.textContent = next === "light" ? "Dark theme ব্যবহার করুন" : "Light theme ব্যবহার করুন";
+      try { localStorage.setItem("unbd-theme", next); } catch { /* Storage can be unavailable. */ }
+    });
+    content.append(themeButton);
   }
+  if (title) title.textContent = heading.textContent;
 }
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initializeNavigation, { once: true });
