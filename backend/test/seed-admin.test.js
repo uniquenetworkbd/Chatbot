@@ -10,7 +10,8 @@ const { migrate } = require("../database/migrations");
 
 const script = path.join(__dirname, "..", "scripts", "seed-admin.js");
 const username = "Raive";
-const requestedPassword = "@#Raive@#";
+// Deliberately short test fixture; never place real administrator credentials in source.
+const testPassword = "tiny-test";
 
 function createDatabase() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "unbd-admin-seed-"));
@@ -20,7 +21,7 @@ function createDatabase() {
   return { directory, dbPath, db };
 }
 
-function runSeed(dbPath, password = requestedPassword) {
+function runSeed(dbPath, password = testPassword) {
   return spawnSync(process.execPath, [script], {
     encoding: "utf8",
     env: { ...process.env, DB_PATH: dbPath, ADMIN_USERNAME: username, ADMIN_PASSWORD: password }
@@ -39,7 +40,7 @@ function passwordMatches(password, encoded) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-test("seed creates requested interim admin password with salted scrypt", () => {
+test("seed creates an interim short-password admin with salted scrypt", () => {
   const { directory, dbPath, db } = createDatabase();
   try {
     db.close();
@@ -49,9 +50,9 @@ test("seed creates requested interim admin password with salted scrypt", () => {
     const admin = check.prepare("SELECT id, username, password_hash FROM admins WHERE username = ?").get(username);
     assert.ok(admin);
     assert.equal(admin.username, username);
-    assert.match(admin.password_hash, /^scrypt\$16384\$8\$1\$/);
-    assert.equal(passwordMatches(requestedPassword, admin.password_hash), true);
-    assert.notEqual(admin.password_hash, requestedPassword);
+    assert.match(admin.password_hash, /^scrypt\\$16384\\$8\\$1\\$/);
+    assert.equal(passwordMatches(testPassword, admin.password_hash), true);
+    assert.notEqual(admin.password_hash, testPassword);
     check.close();
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
@@ -76,7 +77,7 @@ test("seed updates existing admin hash and revokes old sessions", () => {
     const admin = check.prepare("SELECT id, password_hash FROM admins WHERE username = ?").get(username);
     assert.equal(admin.id, adminId);
     assert.notEqual(admin.password_hash, oldHash);
-    assert.equal(passwordMatches(requestedPassword, admin.password_hash), true);
+    assert.equal(passwordMatches(testPassword, admin.password_hash), true);
     assert.equal(check.prepare("SELECT COUNT(*) AS count FROM admin_sessions WHERE admin_id = ?").get(adminId).count, 0);
     check.close();
   } finally {
