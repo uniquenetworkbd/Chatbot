@@ -46,7 +46,7 @@ function startServer(port, dbPath) {
       NODE_ENV: "test",
       ADMIN_PASSWORD: testPassword
     },
-    stdio: "ignore"
+    stdio: "inherit"
   });
 }
 
