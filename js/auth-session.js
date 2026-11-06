@@ -13,7 +13,7 @@ export function authHeaders(extra = {}) {
 }
 async function api(path, options = {}) {
   const base = getApiBaseUrl();
-  if (!base) throw new Error("Backend URL is not configured. Admin login is unavailable.");
+  if (!base) throw new Error("Backend is unavailable. Configure a stable HTTPS API endpoint for this deployment.");
   const response = await fetch(base + path, { ...options, headers: authHeaders(options.headers), cache: "no-store", credentials: "omit" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Authentication request failed (HTTP " + response.status + ").");
@@ -34,12 +34,6 @@ function renderLogin(message = "") {
   const title = document.createElement("h1"); title.textContent = "Secure Admin Login";
   const description = document.createElement("p"); description.textContent = "আপনার Admin username ও password দিয়ে প্রবেশ করুন।";
   const form = document.createElement("form"); form.className = "auth-form";
-  let apiOrigin = null;
-  if (!getApiBaseUrl()) {
-    const apiLabel = document.createElement("label"); apiLabel.textContent = "GitHub Codespaces API URL";
-    apiOrigin = document.createElement("input"); apiOrigin.name = "apiOrigin"; apiOrigin.type = "url"; apiOrigin.placeholder = "https://YOUR-CODESPACE-3000.app.github.dev"; apiOrigin.autocomplete = "url"; apiOrigin.required = true;
-    apiLabel.append(apiOrigin); form.append(apiLabel);
-  }
   const userLabel = document.createElement("label"); userLabel.textContent = "Username";
   const user = document.createElement("input"); user.name = "username"; user.autocomplete = "username"; user.required = true; user.maxLength = 80;
   userLabel.append(user);
@@ -54,11 +48,6 @@ function renderLogin(message = "") {
   form.addEventListener("submit", async event => {
     event.preventDefault(); submit.disabled = true; status.textContent = "Verifying credentials…";
     try {
-      if (apiOrigin) {
-        const parsed = new URL(apiOrigin.value.trim());
-        if (parsed.protocol !== "https:" || !parsed.hostname.endsWith(".app.github.dev") || parsed.pathname !== "/" || parsed.search || parsed.hash) throw new Error("Enter the HTTPS forwarded URL for Codespaces port 3000.");
-        sessionStorage.setItem("unbd-codespaces-api-url", parsed.origin);
-      }
       const data = await api("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: user.value.trim(), password: pass.value }) });
       try { sessionStorage.setItem(TOKEN_KEY, data.token); } catch { throw new Error("Session storage is unavailable. Enable session storage and retry."); }
       currentAdmin = data.admin;
@@ -72,7 +61,7 @@ function renderLogin(message = "") {
 }
 export async function ensureAuthenticated() {
   const base = getApiBaseUrl(), token = getAuthToken();
-  if (!base) { renderLogin("Start the GitHub Codespace and enter its forwarded port 3000 URL below."); return false; }
+  if (!base) { renderLogin("Backend সংযোগ বর্তমানে পাওয়া যাচ্ছে না। Backend configuration যাচাই করুন।"); return false; }
   if (!token) { renderLogin(); return false; }
   try {
     const data = await api("/api/auth/session");
