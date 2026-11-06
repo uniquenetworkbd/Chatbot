@@ -50,7 +50,7 @@ test("seed creates an interim short-password admin with salted scrypt", () => {
     const admin = check.prepare("SELECT id, username, password_hash FROM admins WHERE username = ?").get(username);
     assert.ok(admin);
     assert.equal(admin.username, username);
-    assert.match(admin.password_hash, /^scrypt\\$16384\\$8\\$1\\$/);
+    assert.ok(admin.password_hash.startsWith("scrypt$16384$8$1$"));
     assert.equal(passwordMatches(testPassword, admin.password_hash), true);
     assert.notEqual(admin.password_hash, testPassword);
     check.close();
