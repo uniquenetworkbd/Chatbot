@@ -5,8 +5,8 @@
   "portsAttributes": {
     "3000": {
       "label": "Chatbot API",
-      "onAutoForward": "notify",
-      "visibility": "private"
+      "onAutoForward": "openBrowser",
+      "visibility": "public"
     }
   },
   "postCreateCommand": "cd backend && npm install",
