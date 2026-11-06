@@ -79,7 +79,7 @@ test("startup bootstrap creates Raive, hashes password and revokes old sessions 
     ).get("Raive");
     assert.ok(admin);
     assert.equal(admin.username, "Raive");
-    assert.match(admin.password_hash, /^scrypt\\$16384\\$8\\$1\\$/);
+    assert.match(admin.password_hash, /^scrypt\$16384\$8\$1\$/);
     assert.notEqual(admin.password_hash, testPassword);
     assert.equal(
       inspect.prepare("SELECT COUNT(*) AS count FROM admin_sessions WHERE admin_id = ?")
