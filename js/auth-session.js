@@ -83,6 +83,7 @@ export async function logout() {
   window.location.replace("./index.html");
 }
 export function initializeAuthControls() {
+  if (!getAuthToken()) return;
   const topbar = document.querySelector(".topbar");
   if (!topbar || document.getElementById("logout-button")) return;
   const button = document.createElement("button");
