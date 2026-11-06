@@ -86,19 +86,9 @@ TRUST_PROXY=0
 
 Set `TRUST_PROXY=1` only when the hosting platform's network path is confirmed to contain exactly one trusted proxy hop. Incorrect proxy trust can allow spoofed client IPs and weaken IP rate limits.
 
-Create the first administrator after deploying the backend and applying migrations. In a Bash shell, run:
+Configure the backend host's secret store with `ADMIN_PASSWORD` before starting the service. On startup, after database migrations and before the HTTP listener opens, the server creates or updates the fixed `Raive` administrator using a random salt and scrypt hash, then revokes existing sessions for that administrator. No manual seed command is required when this secret is configured.
 
-```bash
-cd backend
-read -r -p "Admin username: " ADMIN_USERNAME
-read -r -s -p "Admin password: " ADMIN_PASSWORD
-echo
-export ADMIN_USERNAME ADMIN_PASSWORD
-npm run seed:admin
-unset ADMIN_PASSWORD
-```
-
-Choose a unique password of at least 14 bytes. The seed script stores only a salted scrypt hash and refuses to overwrite an existing username. Never commit or persist the bootstrap password.
+The password is intentionally not embedded in source control. Do not place production credentials in `.env.example`, commit history, frontend files, or public issue/PR comments. If `ADMIN_PASSWORD` is absent, startup bootstrap is skipped and existing administrator records are left unchanged. The existing `npm run seed:admin` script remains available for controlled manual administration.
 
 ## Persistent storage and SQLite
 
