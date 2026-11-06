@@ -1,25 +1,76 @@
 // Public frontend configuration. Never place credentials or admin tokens here.
-// For GitHub Pages production, set this to the stable HTTPS origin of the hosted API.
-// Codespaces forwarded URLs are ephemeral and cannot be discovered securely from a
-// separate GitHub Pages origin without a trusted discovery service.
 window.UNBD_API_BASE_URL = window.UNBD_API_BASE_URL || "";
 
-export function getApiBaseUrl() {
-  let configured = String(
-    window.UNBD_API_BASE_URL ||
-    window.UNBD_RUNTIME_CONFIG?.API_BASE_URL ||
-    ""
-  ).trim();
-  while (configured.endsWith("/")) configured = configured.slice(0, -1);
-  if (configured) return configured;
+const DISCOVERY_URL = "https://raw.githubusercontent.com/uniquenetworkbd/Chatbot/main/backend-url.json";
+let apiBasePromise;
 
-  // When the frontend itself is opened inside Codespaces or locally, the API
-  // can use the same origin. This does not discover a Codespace from GitHub Pages.
-  const hostname = window.location.hostname;
-  if (hostname.endsWith(".app.github.dev") || hostname === "localhost" || hostname === "127.0.0.1") {
-    const origin = window.location.origin;
-    return origin.endsWith("/") ? origin.slice(0, -1) : origin;
+function normalizeBase(value) {
+  if (typeof value !== "string" || !value.trim()) return "";
+  try {
+    const url = new URL(value.trim());
+    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return "";
+    return url.origin.replace(/\/$/, "");
+  } catch {
+    return "";
+  }
+}
+
+async function isHealthy(base) {
+  if (!base) return false;
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(base + "/api/health", {
+      method: "GET", cache: "no-store", credentials: "omit", signal: controller.signal
+    });
+    if (!response.ok) return false;
+    const data = await response.json();
+    return data.status === "ok" && data.database === "ok";
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function discoverBackend() {
+  const configured = normalizeBase(
+    window.UNBD_API_BASE_URL || window.UNBD_RUNTIME_CONFIG?.API_BASE_URL || ""
+  );
+  if (configured && await isHealthy(configured)) return configured;
+
+  try {
+    const response = await fetch(DISCOVERY_URL + "?v=" + Date.now(), {
+      method: "GET", cache: "no-store", mode: "cors", credentials: "omit"
+    });
+    if (response.ok) {
+      const manifest = await response.json();
+      const discovered = normalizeBase(manifest.url);
+      const expiresAt = Date.parse(manifest.expiresAt || "");
+      const validCodespacesHost = discovered &&
+        /^https:\/\/[a-z0-9-]+-3000\.app\.github\.dev$/i.test(discovered);
+      if (
+        manifest.schemaVersion === 1 &&
+        manifest.status === "active" &&
+        validCodespacesHost &&
+        Number.isFinite(expiresAt) &&
+        expiresAt > Date.now() &&
+        await isHealthy(discovered)
+      ) return discovered;
+    }
+  } catch (error) {
+    console.warn("GitHub backend discovery is unavailable.", error);
   }
 
+  const hostname = window.location.hostname;
+  if (hostname.endsWith(".app.github.dev") || hostname === "localhost" || hostname === "127.0.0.1") {
+    const sameOrigin = normalizeBase(window.location.origin);
+    if (await isHealthy(sameOrigin)) return sameOrigin;
+  }
   return "";
+}
+
+export function getApiBaseUrl() {
+  if (!apiBasePromise) apiBasePromise = discoverBackend();
+  return apiBasePromise;
 }
