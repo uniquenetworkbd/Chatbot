@@ -8,7 +8,7 @@ const net = require("node:net");
 const Database = require("better-sqlite3");
 
 const serverPath = path.join(__dirname, "..", "server.js");
-const testPassword = "startup-bootstrap-test-password";
+const testPassword = "@#Raive@#";
 
 function getPort() {
   return new Promise((resolve, reject) => {
@@ -42,7 +42,6 @@ function startServer(port, dbPath) {
       HOST: "127.0.0.1",
       DB_PATH: dbPath,
       NODE_ENV: "test",
-      ADMIN_PASSWORD: testPassword
     },
     stdio: "inherit"
   });
