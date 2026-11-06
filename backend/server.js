@@ -20,6 +20,80 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
 
 const dbPath = process.env.DB_PATH || path.join(__dirname, "data", "database.sqlite");
 const database = openDatabase(dbPath);
+
+/**
+ * Optional secure startup bootstrap.
+ * The credential is supplied by the deployment secret store, never committed
+ * to the repository. If it is absent, existing admin records are untouched.
+ */
+function bootstrapAdmin(db) {
+  const username = "Raive";
+  const password = process.env.ADMIN_PASSWORD;
+
+  if (typeof password !== "string" || password.length === 0) {
+    console.warn(JSON.stringify({
+      level: "warn",
+      event: "admin_auto_bootstrap_skipped",
+      reason: "ADMIN_PASSWORD deployment secret is not configured"
+    }));
+    return { action: "skipped" };
+  }
+
+  if (Buffer.byteLength(password, "utf8") > 1024) {
+    throw new Error("ADMIN_PASSWORD must not exceed 1024 UTF-8 bytes.");
+  }
+
+  const salt = randomBytes(16);
+  const derived = scryptSync(password, salt, 64, {
+    N: 16384,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024
+  });
+  const passwordHash = [
+    "scrypt", "16384", "8", "1",
+    salt.toString("hex"),
+    derived.toString("hex")
+  ].join("$");
+
+  const result = db.transaction(() => {
+    const existing = db.prepare(
+      "SELECT id FROM admins WHERE username = ? COLLATE NOCASE"
+    ).get(username);
+
+    db.prepare(`
+      INSERT INTO admins (username, password_hash)
+      VALUES (?, ?)
+      ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash
+    `).run(username, passwordHash);
+
+    const admin = db.prepare(
+      "SELECT id, username FROM admins WHERE username = ? COLLATE NOCASE"
+    ).get(username);
+
+    // Invalidate only sessions belonging to this administrator.
+    db.prepare("DELETE FROM admin_sessions WHERE admin_id = ?").run(admin.id);
+
+    return {
+      action: existing ? "updated" : "created",
+      username: admin.username
+    };
+  })();
+
+  console.log(JSON.stringify({
+    level: "info",
+    event: "admin_auto_bootstrap_completed",
+    action: result.action,
+    username: result.username,
+    passwordStoredAs: "salted scrypt hash",
+    previousSessionsRevoked: true
+  }));
+
+  return result;
+}
+
+// Migrations have completed inside openDatabase(); bootstrap before listen().
+bootstrapAdmin(database.db);
 const logs = createLogServices(database.db);
 const dependencies = { ...database, logs };
 const app = express();
@@ -116,4 +190,4 @@ function shutdown(signal) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-module.exports = { app, db: database.db, server };
+module.exports = { app, db: database.db, server, bootstrapAdmin };
