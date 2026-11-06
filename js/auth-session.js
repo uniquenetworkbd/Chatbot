@@ -12,7 +12,7 @@ export function authHeaders(extra = {}) {
   return headers;
 }
 async function api(path, options = {}) {
-  const base = getApiBaseUrl();
+  const base = await getApiBaseUrl();
   if (!base) throw new Error("Backend is unavailable. Configure a stable HTTPS API endpoint for this deployment.");
   const response = await fetch(base + path, { ...options, headers: authHeaders(options.headers), cache: "no-store", credentials: "omit" });
   const data = await response.json().catch(() => ({}));
@@ -60,7 +60,7 @@ function renderLogin(message = "") {
   });
 }
 export async function ensureAuthenticated() {
-  const base = getApiBaseUrl(), token = getAuthToken();
+  const base = await getApiBaseUrl(), token = getAuthToken();
   if (!base) { renderLogin("Backend সংযোগ বর্তমানে পাওয়া যাচ্ছে না। Backend configuration যাচাই করুন।"); return false; }
   if (!token) { renderLogin(); return false; }
   try {
