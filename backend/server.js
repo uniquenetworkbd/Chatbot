@@ -3,6 +3,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const path = require("node:path");
+const { randomBytes, scryptSync } = require("node:crypto");
 
 const { openDatabase } = require("./database/connection");
 const { createLogServices } = require("./services/log-services");
