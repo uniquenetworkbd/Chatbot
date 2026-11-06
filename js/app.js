@@ -1,4 +1,4 @@
-import "./config.js";
+import { getApiBaseUrl } from "./config.js";
 import { searchKnowledge, FALLBACK_RESPONSE, getKnowledgeStats, DOCUMENTS } from "./knowledge/index.js";
 import { initializeNavigation } from "./navigation.js";
 import { authHeaders } from "./auth-session.js";
