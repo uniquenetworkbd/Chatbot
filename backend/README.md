@@ -84,9 +84,9 @@ CORS_ORIGINS=https://uniquenetworkbd.github.io
 TRUST_PROXY=0
 ```
 
-Configure the backend host's secret store with `ADMIN_PASSWORD` before starting the service. On startup, after database migrations and before the HTTP listener opens, the server creates or updates the fixed `Raive` administrator using a random salt and scrypt hash, then revokes existing sessions for that administrator. No manual seed command is required when this secret is configured.
+For the GitHub-only development environment, the server bootstraps the fixed `Raive` administrator after database migrations and before the HTTP listener opens. The repository contains a salted scrypt hash for the requested default development credential; the plaintext password is not stored in the database or frontend. A non-empty `ADMIN_PASSWORD` runtime environment value can override the default, but no GitHub Secret is required. On each startup the Admin password hash is refreshed and existing sessions for that Admin are revoked. The existing `npm run seed:admin` script remains available for controlled manual administration.
 
-The password is intentionally not embedded in source control. Do not place production credentials in `.env.example`, commit history, frontend files, or public issue/PR comments. If `ADMIN_PASSWORD` is absent, startup bootstrap is skipped and existing administrator records are left unchanged. The existing `npm run seed:admin` script remains available for controlled manual administration.
+**GitHub Codespaces:** the devcontainer starts the API on port 3000 and forwards that port publicly so the GitHub Pages frontend can reach it. Keep the Codespace running while using the Pages Admin workspace. The SQLite database is stored in the Codespace workspace volume; it is not a continuously hosted database when the Codespace is stopped or deleted. The default credential is intended for this development workspace and must not be used to protect sensitive production data.
 
 ## Persistent storage and SQLite
 
