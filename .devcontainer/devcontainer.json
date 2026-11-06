@@ -1,7 +1,9 @@
 {
   "name": "Unique Network BD Chatbot Backend",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm",
-  "forwardPorts": [3000],
+  "forwardPorts": [
+    3000
+  ],
   "portsAttributes": {
     "3000": {
       "label": "Chatbot API",
@@ -10,5 +12,5 @@
     }
   },
   "postCreateCommand": "cd backend && npm install",
-  "postStartCommand": "cd backend && (npm start > /tmp/chatbot-api.log 2>&1 &)"
+  "postStartCommand": "bash scripts/codespaces-start.sh"
 }
