@@ -4,15 +4,17 @@ const path = require("node:path");
 const { randomBytes, scryptSync } = require("node:crypto");
 const { migrate } = require("../database/migrations");
 
-// Username defaults to the requested account; never place a password in source control.
+// Interim policy: accept any non-empty password up to the login API's 1024-byte limit.
+// The password is supplied through the environment and is never embedded in source control.
 const username = String(process.env.ADMIN_USERNAME || "Raive").trim();
 const password = String(process.env.ADMIN_PASSWORD || "");
 
 if (!/^[A-Za-z0-9._-]{3,80}$/.test(username)) {
   throw new Error("ADMIN_USERNAME must be 3–80 letters, digits, dot, underscore or hyphen.");
 }
-if (Buffer.byteLength(password, "utf8") < 14 || Buffer.byteLength(password, "utf8") > 1024) {
-  throw new Error("ADMIN_PASSWORD must be 14–1024 bytes; use a stronger password.");
+const passwordBytes = Buffer.byteLength(password, "utf8");
+if (passwordBytes < 1 || passwordBytes > 1024) {
+  throw new Error("ADMIN_PASSWORD must be between 1 and 1024 bytes.");
 }
 
 const dbPath = path.resolve(
@@ -58,7 +60,7 @@ try {
       .prepare("SELECT id, username FROM admins WHERE username = ? COLLATE NOCASE")
       .get(username);
 
-    // A password reset revokes all existing sessions for this account.
+    // Password changes invalidate all active sessions for this admin.
     db.prepare("DELETE FROM admin_sessions WHERE admin_id = ?").run(admin.id);
 
     return { action: existing ? "updated" : "created", admin };
