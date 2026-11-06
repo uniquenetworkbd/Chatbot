@@ -5,7 +5,7 @@ import { authHeaders } from "./auth-session.js";
 const STORAGE_KEY = "unbd-chat-history-v1";
 const MAX_HISTORY = 60;
 const SESSION_KEY = "unbd-chat-session-v1";
-const API_BASE_URL = getApiBaseUrl();
+const API_BASE_URL = await getApiBaseUrl();
 const QUICK_REPLIES = { internet:["ইন্টারনেটের গতি কম","রাউটার কীভাবে restart করব?","ONU-তে LOS লাইট জ্বলছে"], billing:["বিকাশে বিল পেমেন্ট","আমার বিল কত?","পেমেন্টের রসিদ"], company:["অফিসের ঠিকানা","যোগাযোগের নম্বর","ইন্টারনেট প্যাকেজ"], security:["ফিশিং থেকে বাঁচব কীভাবে?","অ্যাকাউন্ট সুরক্ষা","পাসওয়ার্ড পরিবর্তন"] };
 const DEFAULT_REPLIES = ["ইন্টারনেট সংযোগ সমস্যা","বিল পেমেন্ট","অফিসের ঠিকানা"];
 function getSessionId(){try{let id=localStorage.getItem(SESSION_KEY);if(!id){id=globalThis.crypto?.randomUUID?.()||"unbd-"+Date.now()+"-"+Math.random().toString(36).slice(2);localStorage.setItem(SESSION_KEY,id);}return id;}catch{return "unbd-"+Date.now();}}
