@@ -24,6 +24,25 @@ jobs:
           node-version: 22
       - name: Check modules
         run: for file in js/*.js js/knowledge/*.js scripts/*.mjs; do node --experimental-default-type=module --check "$file"; done
+      - name: Verify Codespaces discovery wiring
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import { readFile } from 'node:fs/promises';
+          const config = await readFile('js/config.js', 'utf8');
+          const app = await readFile('js/app.js', 'utf8');
+          const auth = await readFile('js/auth-session.js', 'utf8');
+          const dev = JSON.parse(await readFile('.devcontainer/devcontainer.json', 'utf8'));
+          assert.match(config, /raw.githubusercontent.com/);
+          assert.match(config, /backend-url.json/);
+          assert.match(config, /manifest.status === "active"/);
+          assert.match(config, /await isHealthy\(discovered\)/);
+          assert.match(app, /await getApiBaseUrl\(\)/);
+          assert.match(auth, /await getApiBaseUrl\(\)/);
+          assert.equal(dev.portsAttributes["3000"].visibility, "public");
+          assert.equal(dev.customizations.codespaces.repositories["uniquenetworkbd/Chatbot"].permissions.contents, "write");
+          console.log("PASS: GitHub Codespaces discovery wiring and required permissions");
+          NODE
       - name: Test frontend and API bridge safeguards
         run: |
           node --experimental-default-type=module --input-type=module <<'NODE'
