@@ -31,7 +31,7 @@ const app = express();
 app.locals.db = database.db;
 
 app.disable("x-powered-by");
-const trustProxy = process.env.TRUST_PROXY || "0";
+const trustProxy = process.env.TRUST_PROXY || "1";
 if (trustProxy !== "0" && trustProxy !== "1") {
   throw new Error("TRUST_PROXY must be 0 or 1; configure it only after confirming the proxy topology.");
 }
