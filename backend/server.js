@@ -23,27 +23,39 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, "data", "database.sql
 const database = openDatabase(dbPath);
 
 /**
- * GitHub Codespaces development bootstrap. The default credential is stored
- * as a salted scrypt hash; ADMIN_PASSWORD can override it at runtime.
+ * Optional secure startup bootstrap.
+ * The credential is supplied by the deployment secret store, never committed
+ * to the repository. If it is absent, existing admin records are untouched.
  */
 function bootstrapAdmin(db) {
   const username = "Raive";
   const password = process.env.ADMIN_PASSWORD;
-  const defaultPasswordHash = "scrypt$16384$8$1$6f4a2c9e13b7d805a1c6e9f2038d7b41$1f584f40810f6a686d8ab9ea150de2c00e2694de3d987e5529f6c6c398dd22595a25935316a50040a213c8b6b4871db81bfb5629bd3177ed591c96517f7dd872";
-  let passwordHash = defaultPasswordHash;
 
-  if (typeof password === "string" && password.length > 0) {
-    if (Buffer.byteLength(password, "utf8") > 1024) {
-      throw new Error("ADMIN_PASSWORD must not exceed 1024 UTF-8 bytes.");
-    }
-    const salt = randomBytes(16);
-    const derived = scryptSync(password, salt, 64, {
-      N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024
-    });
-    passwordHash = [
-      "scrypt", "16384", "8", "1", salt.toString("hex"), derived.toString("hex")
-    ].join("$");
+  if (typeof password !== "string" || password.length === 0) {
+    console.warn(JSON.stringify({
+      level: "warn",
+      event: "admin_auto_bootstrap_skipped",
+      reason: "ADMIN_PASSWORD deployment secret is not configured"
+    }));
+    return { action: "skipped" };
   }
+
+  if (Buffer.byteLength(password, "utf8") > 1024) {
+    throw new Error("ADMIN_PASSWORD must not exceed 1024 UTF-8 bytes.");
+  }
+
+  const salt = randomBytes(16);
+  const derived = scryptSync(password, salt, 64, {
+    N: 16384,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024
+  });
+  const passwordHash = [
+    "scrypt", "16384", "8", "1",
+    salt.toString("hex"),
+    derived.toString("hex")
+  ].join("$");
 
   const result = db.transaction(() => {
     const existing = db.prepare(
@@ -59,9 +71,14 @@ function bootstrapAdmin(db) {
     const admin = db.prepare(
       "SELECT id, username FROM admins WHERE username = ? COLLATE NOCASE"
     ).get(username);
+
+    // Invalidate only sessions belonging to this administrator.
     db.prepare("DELETE FROM admin_sessions WHERE admin_id = ?").run(admin.id);
 
-    return { action: existing ? "updated" : "created", username: admin.username };
+    return {
+      action: existing ? "updated" : "created",
+      username: admin.username
+    };
   })();
 
   console.log(JSON.stringify({
@@ -72,12 +89,12 @@ function bootstrapAdmin(db) {
     passwordStoredAs: "salted scrypt hash",
     previousSessionsRevoked: true
   }));
+
   return result;
 }
 
-// openDatabase completes schema migrations before this startup bootstrap.
+// Migrations have completed inside openDatabase(); bootstrap before listen().
 bootstrapAdmin(database.db);
-
 const logs = createLogServices(database.db);
 const dependencies = { ...database, logs };
 const app = express();
