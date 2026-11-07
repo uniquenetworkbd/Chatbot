@@ -31,7 +31,7 @@ function bootstrapAdmin(db) {
   const username = "Raive";
   const password = process.env.ADMIN_PASSWORD;
 
-  if (typeof password !== "string" || !/^[\\x21-\\x7E]{16}$/.test(password)) {
+  if (typeof password !== "string" || !/^[\x21-\x7E]{16}$/.test(password)) {
     throw new Error("ADMIN_PASSWORD is required and must be exactly 16 printable ASCII characters. Configure it as a Codespaces secret; no insecure default password is provided.");
   }
 
