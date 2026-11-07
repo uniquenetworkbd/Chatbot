@@ -39,7 +39,7 @@ module.exports = ({ db }) => {
           username.length < 1 || username.length > 80 || password.length < 1 || password.length > 1024) {
         return res.status(400).json({ error: "Username and password are required." });
       }
-      const admin = db.prepare("SELECT id, username, password_hash FROM admins WHERE username = ? COLLATE NOCASE").get(username.trim());
+      const admin = db.prepare("SELECT id, username, password_hash FROM admins WHERE username = ? COLLATE BINARY").get(username.trim());
       const valid = admin ? await verifyPassword(password, admin.password_hash) : false;
       if (!valid) return res.status(401).json({ error: "Invalid username or password." });
 
