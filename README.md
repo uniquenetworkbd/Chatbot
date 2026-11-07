@@ -105,3 +105,11 @@ Workflow `.github/workflows/pages.yml` tests modules and knowledge search, stage
 ## Project scope
 
 Local knowledge assistant with optional logging API; not an AI inference service, billing system, customer account portal or multi-role IAM system.
+
+## Professional ISP knowledge expansion v1
+
+- The professional ISP pack is maintained in `js/knowledge/professional-isp.js` and indexed by `js/knowledge/index.js`.
+- It currently defines **940 searchable knowledge cards** across 15 ISP support categories, built from **188 curated topics** and five support intents per topic (recognition, possible causes, safe checks, safe actions, escalation).
+- **610 cards** contain general technical/support guidance. **330 cards** are explicitly marked as requiring verified company/customer data (company details, packages, billing, connection availability, customer accounts, payment status and contractual policy). Those cards must not invent live values.
+- These are structured retrieval cards, not 940 independently researched facts or a generative AI model. Content quality and Bengali/Banglish query coverage still require a representative question/answer benchmark.
+- CI validates the card count, unique IDs, metadata counts and representative retrieval queries. CI success does not establish live ISP device connectivity, billing verification, customer-data access or production browser E2E success.
