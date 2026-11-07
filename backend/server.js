@@ -23,25 +23,16 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, "data", "database.sql
 const database = openDatabase(dbPath);
 
 /**
- * Optional secure startup bootstrap.
- * The credential is supplied by the deployment secret store, never committed
- * to the repository. If it is absent, existing admin records are untouched.
+ * Required secure startup bootstrap.
+ * ADMIN_PASSWORD must be injected by the Codespaces secret store at runtime.
+ * Never use a repository-visible fallback credential.
  */
 function bootstrapAdmin(db) {
   const username = "Raive";
   const password = process.env.ADMIN_PASSWORD;
 
-  if (typeof password !== "string" || password.length === 0) {
-    console.warn(JSON.stringify({
-      level: "warn",
-      event: "admin_auto_bootstrap_skipped",
-      reason: "ADMIN_PASSWORD deployment secret is not configured"
-    }));
-    return { action: "skipped" };
-  }
-
-  if (Buffer.byteLength(password, "utf8") > 1024) {
-    throw new Error("ADMIN_PASSWORD must not exceed 1024 UTF-8 bytes.");
+  if (typeof password !== "string" || !/^[\\x21-\\x7E]{16}$/.test(password)) {
+    throw new Error("ADMIN_PASSWORD is required and must be exactly 16 printable ASCII characters. Configure it as a Codespaces secret; no insecure default password is provided.");
   }
 
   const salt = randomBytes(16);
@@ -58,6 +49,10 @@ function bootstrapAdmin(db) {
   ].join("$");
 
   const result = db.transaction(() => {
+    // The admins.username column uses NOCASE collation. BINARY comparison
+    // removes case-variants too, leaving exactly one canonical "Raive".
+    db.prepare("DELETE FROM admins WHERE username COLLATE BINARY <> ?").run(username);
+
     const existing = db.prepare(
       "SELECT id FROM admins WHERE username = ? COLLATE NOCASE"
     ).get(username);
@@ -65,20 +60,19 @@ function bootstrapAdmin(db) {
     db.prepare(`
       INSERT INTO admins (username, password_hash)
       VALUES (?, ?)
-      ON CONFLICT(username) DO UPDATE SET password_hash = excluded.password_hash
+      ON CONFLICT(username) DO UPDATE SET
+        username = excluded.username,
+        password_hash = excluded.password_hash
     `).run(username, passwordHash);
 
     const admin = db.prepare(
-      "SELECT id, username FROM admins WHERE username = ? COLLATE NOCASE"
+      "SELECT id, username FROM admins WHERE username = ? COLLATE BINARY"
     ).get(username);
+    if (!admin) throw new Error("Canonical Raive admin bootstrap did not persist.");
 
-    // Invalidate only sessions belonging to this administrator.
-    db.prepare("DELETE FROM admin_sessions WHERE admin_id = ?").run(admin.id);
-
-    return {
-      action: existing ? "updated" : "created",
-      username: admin.username
-    };
+    // Revoke all sessions so no legacy or pre-rotation session survives.
+    db.prepare("DELETE FROM admin_sessions").run();
+    return { action: existing ? "updated" : "created", username: admin.username };
   })();
 
   console.log(JSON.stringify({
@@ -87,12 +81,11 @@ function bootstrapAdmin(db) {
     action: result.action,
     username: result.username,
     passwordStoredAs: "salted scrypt hash",
-    previousSessionsRevoked: true
+    legacyAdminsRemoved: true,
+    allPreviousSessionsRevoked: true
   }));
-
   return result;
 }
-
 // Migrations have completed inside openDatabase(); bootstrap before listen().
 bootstrapAdmin(database.db);
 const logs = createLogServices(database.db);
