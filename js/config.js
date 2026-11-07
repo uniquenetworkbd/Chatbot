@@ -2,13 +2,15 @@
 window.UNBD_API_BASE_URL = window.UNBD_API_BASE_URL || "";
 
 const DISCOVERY_URL = "https://raw.githubusercontent.com/uniquenetworkbd/Chatbot/main/backend-url.json";
-let apiBasePromise;
+const DISCOVERY_RETRY_MS = 10000;
+let apiBasePromise = null;
+let apiBaseCheckedAt = 0;
 
 function normalizeBase(value) {
   if (typeof value !== "string" || !value.trim()) return "";
   try {
     const url = new URL(value.trim());
-    if (!["https:", "http:"].includes(url.protocol) || url.username || url.password) return "";
+    if (url.protocol !== "https:" || url.username || url.password) return "";
     return url.origin.replace(/\/$/, "");
   } catch {
     return "";
@@ -59,7 +61,7 @@ async function discoverBackend() {
       ) return discovered;
     }
   } catch (error) {
-    console.warn("GitHub backend discovery is unavailable.", error);
+    console.warn("GitHub backend discovery is unavailable; retry will occur automatically.", error);
   }
 
   const hostname = window.location.hostname;
@@ -70,7 +72,16 @@ async function discoverBackend() {
   return "";
 }
 
+// A failed/offline lookup is cached only briefly. This lets the UI reconnect
+// automatically after a Codespace resumes without requiring a page reload.
 export function getApiBaseUrl() {
-  if (!apiBasePromise) apiBasePromise = discoverBackend();
+  if (apiBasePromise && Date.now() - apiBaseCheckedAt < DISCOVERY_RETRY_MS) {
+    return apiBasePromise;
+  }
+  apiBaseCheckedAt = Date.now();
+  apiBasePromise = discoverBackend().catch(error => {
+    console.warn("Backend discovery failed; retrying shortly.", error);
+    return "";
+  });
   return apiBasePromise;
 }
