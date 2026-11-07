@@ -3,9 +3,10 @@ import { internetKnowledge } from "./internet.js";
 import { billingKnowledge } from "./billing.js";
 import { securityKnowledge } from "./security.js";
 import { expandSynonyms } from "./synonyms.js";
+import { professionalIspKnowledge } from "./professional-isp.js";
 
 export const FALLBACK_RESPONSE = "দুঃখিত, এই বিষয়টি আমার নলেজ বেসে নেই। সঠিক সহায়তার জন্য দয়া করে আমাদের মাইজদী সদর অফিসে যোগাযোগ করুন অথবা ফেসবুক পেজে ইনবক্স করুন।";
-const DOCUMENTS = [...companyKnowledge, ...internetKnowledge, ...billingKnowledge, ...securityKnowledge];
+const DOCUMENTS = [...companyKnowledge, ...internetKnowledge, ...billingKnowledge, ...securityKnowledge, ...professionalIspKnowledge];
 const STOP_WORDS = new Set(["আমি","আমার","আমাকে","আপনি","আপনার","কি","কী","কেন","কিভাবে","কীভাবে","কোথায়","কোথায়","কখন","হবে","হয়","হয়","করুন","দয়া","দয়া","করে","একটি","এবং","জন্য","the","a","an","is","are","what","how","where","when","please","can","you","your","my","to","of","for","and","in","on"]);
 const normalize = value => String(value ?? "").normalize("NFKC").toLocaleLowerCase("bn").replace(/[০-৯]/g, digit => "0123456789"["০১২৩৪৫৬৭৮৯".indexOf(digit)]).replace(/[^\p{L}\p{M}\p{N}]+/gu, " ").trim();
 export function tokenize(value) {
