@@ -94,7 +94,9 @@ const app = express();
 app.locals.db = database.db;
 
 app.disable("x-powered-by");
-if (process.env.TRUST_PROXY === "1") app.set("trust proxy", 1);
+// Codespaces forwards X-Forwarded-For through one trusted ingress proxy.
+// Set this before any middleware (including express-rate-limit) reads req.ip.
+app.set("trust proxy", 1);
 
 app.use(requestLogger);
 app.use(helmet());
