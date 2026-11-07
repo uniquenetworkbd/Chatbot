@@ -24,6 +24,22 @@ jobs:
           node-version: 22
       - name: Check modules
         run: for file in js/*.js js/knowledge/*.js scripts/*.mjs; do node --experimental-default-type=module --check "$file"; done
+      - name: Validate automatic Codespaces startup script
+        run: |
+          bash -n scripts/auto-publish.sh
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+          const dev = JSON.parse(await readFile(".devcontainer/devcontainer.json", "utf8"));
+          const script = await readFile("scripts/auto-publish.sh", "utf8");
+          assert.equal(dev.postStartCommand, "bash scripts/auto-publish.sh");
+          assert.ok(script.includes("npm --prefix"));
+          assert.ok(script.includes("node \"$ROOT_DIR/backend/server.js\""));
+          assert.ok(script.includes("/api/health"));
+          assert.ok(script.includes("/contents/backend-url.json"));
+          assert.ok(script.includes('branch: "main"'));
+          console.log("PASS: Codespaces startup script syntax and automatic publish wiring");
+          NODE
       - name: Verify Codespaces discovery wiring
         run: |
           node --input-type=module <<'NODE'
