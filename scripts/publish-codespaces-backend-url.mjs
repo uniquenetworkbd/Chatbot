@@ -1,8 +1,9 @@
 import process from "node:process";
+import { execFileSync } from "node:child_process";
 
 const port = 3000;
 const repository = process.env.GITHUB_REPOSITORY;
-const token = process.env.GITHUB_TOKEN;
+const token = process.env.GITHUB_TOKEN || (() => {\n  try { return execFileSync("gh", ["auth", "token"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); }\n  catch { return ""; }\n})();
 const codespace = process.env.CODESPACE_NAME;
 const domain = process.env.GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN || "app.github.dev";
 const apiBase = `https://${codespace}-${port}.${domain}`;
