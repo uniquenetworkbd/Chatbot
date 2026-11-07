@@ -10,8 +10,8 @@ const { migrate } = require("../database/migrations");
 
 const script = path.join(__dirname, "..", "scripts", "seed-admin.js");
 const username = "Raive";
-// Deliberately short test fixture; never place real administrator credentials in source.
-const testPassword = "tiny-test";
+// Non-production 16-character fixture for the required startup policy.
+const testPassword = "seed-test-123456";
 
 function createDatabase() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "unbd-admin-seed-"));
@@ -40,7 +40,7 @@ function passwordMatches(password, encoded) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-test("seed creates an interim short-password admin with salted scrypt", () => {
+test("seed creates the canonical Raive admin with a 16-character password and salted scrypt", () => {
   const { directory, dbPath, db } = createDatabase();
   try {
     db.close();
