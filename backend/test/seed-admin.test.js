@@ -43,6 +43,7 @@ function passwordMatches(password, encoded) {
 test("seed creates the canonical Raive admin with a 16-character password and salted scrypt", () => {
   const { directory, dbPath, db } = createDatabase();
   try {
+    db.prepare("INSERT INTO admins(username,password_hash) VALUES(?,?)").run("legacy-dummy", "legacy-hash");
     db.close();
     const result = runSeed(dbPath);
     assert.equal(result.status, 0, result.stderr);
@@ -53,6 +54,7 @@ test("seed creates the canonical Raive admin with a 16-character password and sa
     assert.ok(admin.password_hash.startsWith("scrypt$16384$8$1$"));
     assert.equal(passwordMatches(testPassword, admin.password_hash), true);
     assert.notEqual(admin.password_hash, testPassword);
+    assert.equal(check.prepare("SELECT COUNT(*) AS count FROM admins").get().count, 1);
     check.close();
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
@@ -67,6 +69,7 @@ test("seed updates existing admin hash and revokes old sessions", () => {
       scryptSync("previous-password", salt, 64, { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 }).toString("hex")
     ].join("$");
     const adminId = db.prepare("INSERT INTO admins(username,password_hash) VALUES(?,?)").run(username, oldHash).lastInsertRowid;
+    db.prepare("INSERT INTO admins(username,password_hash) VALUES(?,?)").run("legacy-dummy", "legacy-hash");
     db.prepare("INSERT INTO admin_sessions(admin_id,token_hash,expires_at) VALUES(?,?,?)")
       .run(adminId, "a".repeat(64), new Date(Date.now() + 3600000).toISOString());
     db.close();
@@ -78,7 +81,8 @@ test("seed updates existing admin hash and revokes old sessions", () => {
     assert.equal(admin.id, adminId);
     assert.notEqual(admin.password_hash, oldHash);
     assert.equal(passwordMatches(testPassword, admin.password_hash), true);
-    assert.equal(check.prepare("SELECT COUNT(*) AS count FROM admin_sessions WHERE admin_id = ?").get(adminId).count, 0);
+    assert.equal(check.prepare("SELECT COUNT(*) AS count FROM admins").get().count, 1);
+    assert.equal(check.prepare("SELECT COUNT(*) AS count FROM admin_sessions").get().count, 0);
     check.close();
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
