@@ -9,14 +9,14 @@ const path = require("node:path");
 const { migrate } = require("../database/migrations");
 
 const script = path.join(__dirname, "..", "scripts", "seed-admin.js");
-const username = "Raive";
-// Non-production 16-character fixture for the required startup policy.
+const username = "bootstrap-admin";
 const testPassword = "seed-test-123456";
 
 function createDatabase() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "unbd-admin-seed-"));
   const dbPath = path.join(directory, "seed.sqlite");
   const db = new Database(dbPath);
+  db.pragma("foreign_keys = ON");
   migrate(db);
   return { directory, dbPath, db };
 }
@@ -40,7 +40,7 @@ function passwordMatches(password, encoded) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-test("seed creates the canonical Raive admin with a 16-character password and salted scrypt", () => {
+test("seed creates the configured admin with a salted scrypt hash", () => {
   const { directory, dbPath, db } = createDatabase();
   try {
     db.prepare("INSERT INTO admins(username,password_hash) VALUES(?,?)").run("legacy-dummy", "legacy-hash");
@@ -61,7 +61,7 @@ test("seed creates the canonical Raive admin with a 16-character password and sa
   }
 });
 
-test("seed updates existing admin hash and revokes old sessions", () => {
+test("seed rotates changed credentials and revokes sessions", () => {
   const { directory, dbPath, db } = createDatabase();
   try {
     const salt = randomBytes(16);
@@ -77,8 +77,9 @@ test("seed updates existing admin hash and revokes old sessions", () => {
     const result = runSeed(dbPath);
     assert.equal(result.status, 0, result.stderr);
     const check = new Database(dbPath);
-    const admin = check.prepare("SELECT id, password_hash FROM admins WHERE username = ?").get(username);
+    const admin = check.prepare("SELECT id, username, password_hash FROM admins WHERE username = ?").get(username);
     assert.equal(admin.id, adminId);
+    assert.equal(admin.username, username);
     assert.notEqual(admin.password_hash, oldHash);
     assert.equal(passwordMatches(testPassword, admin.password_hash), true);
     assert.equal(check.prepare("SELECT COUNT(*) AS count FROM admins").get().count, 1);

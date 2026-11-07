@@ -3,9 +3,9 @@ const cors = require("cors");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const path = require("node:path");
-const { randomBytes, scryptSync } = require("node:crypto");
 
 const { openDatabase } = require("./database/connection");
+const { bootstrapAdmin } = require("./services/admin-bootstrap");
 const { createLogServices } = require("./services/log-services");
 const { requestLogger, errors } = require("./middleware/security");
 
@@ -22,71 +22,8 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
 const dbPath = process.env.DB_PATH || path.join(__dirname, "data", "database.sqlite");
 const database = openDatabase(dbPath);
 
-/**
- * Required secure startup bootstrap.
- * ADMIN_PASSWORD must be injected by the Codespaces secret store at runtime.
- * Never use a repository-visible fallback credential.
- */
-function bootstrapAdmin(db) {
-  const username = "Raive";
-  const password = process.env.ADMIN_PASSWORD;
-
-  if (typeof password !== "string" || !/^[\x21-\x7E]{16}$/.test(password)) {
-    throw new Error("ADMIN_PASSWORD is required and must be exactly 16 printable ASCII characters. Configure it as a Codespaces secret; no insecure default password is provided.");
-  }
-
-  const salt = randomBytes(16);
-  const derived = scryptSync(password, salt, 64, {
-    N: 16384,
-    r: 8,
-    p: 1,
-    maxmem: 64 * 1024 * 1024
-  });
-  const passwordHash = [
-    "scrypt", "16384", "8", "1",
-    salt.toString("hex"),
-    derived.toString("hex")
-  ].join("$");
-
-  const result = db.transaction(() => {
-    // The admins.username column uses NOCASE collation. BINARY comparison
-    // removes case-variants too, leaving exactly one canonical "Raive".
-    db.prepare("DELETE FROM admins WHERE username COLLATE BINARY <> ?").run(username);
-
-    const existing = db.prepare(
-      "SELECT id FROM admins WHERE username = ? COLLATE NOCASE"
-    ).get(username);
-
-    db.prepare(`
-      INSERT INTO admins (username, password_hash)
-      VALUES (?, ?)
-      ON CONFLICT(username) DO UPDATE SET
-        username = excluded.username,
-        password_hash = excluded.password_hash
-    `).run(username, passwordHash);
-
-    const admin = db.prepare(
-      "SELECT id, username FROM admins WHERE username = ? COLLATE BINARY"
-    ).get(username);
-    if (!admin) throw new Error("Canonical Raive admin bootstrap did not persist.");
-
-    // Revoke all sessions so no legacy or pre-rotation session survives.
-    db.prepare("DELETE FROM admin_sessions").run();
-    return { action: existing ? "updated" : "created", username: admin.username };
-  })();
-
-  console.log(JSON.stringify({
-    level: "info",
-    event: "admin_auto_bootstrap_completed",
-    action: result.action,
-    username: result.username,
-    passwordStoredAs: "salted scrypt hash",
-    legacyAdminsRemoved: true,
-    allPreviousSessionsRevoked: true
-  }));
-  return result;
-}
-// Migrations have completed inside openDatabase(); bootstrap before listen().
+// Credential bootstrap is mandatory and completes before the HTTP listener opens.
+// Credentials are supplied only by the backend runtime secret store.
 bootstrapAdmin(database.db);
 const logs = createLogServices(database.db);
 const dependencies = { ...database, logs };
@@ -94,9 +31,11 @@ const app = express();
 app.locals.db = database.db;
 
 app.disable("x-powered-by");
-// Codespaces forwards X-Forwarded-For through one trusted ingress proxy.
-// Set this before any middleware (including express-rate-limit) reads req.ip.
-app.set("trust proxy", 1);
+const trustProxy = process.env.TRUST_PROXY || "0";
+if (trustProxy !== "0" && trustProxy !== "1") {
+  throw new Error("TRUST_PROXY must be 0 or 1; configure it only after confirming the proxy topology.");
+}
+app.set("trust proxy", trustProxy === "1" ? 1 : false);
 
 app.use(requestLogger);
 app.use(helmet());

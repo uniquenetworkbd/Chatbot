@@ -8,6 +8,7 @@ const net = require("node:net");
 const Database = require("better-sqlite3");
 
 const serverPath = path.join(__dirname, "..", "server.js");
+const testUsername = "bootstrap-admin";
 const testPassword = "boot-test-123456";
 
 function getPort() {
@@ -23,9 +24,7 @@ function getPort() {
 
 async function waitForHealth(baseUrl, child) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
-    if (child.exitCode !== null) {
-      throw new Error("Server exited before becoming healthy.");
-    }
+    if (child.exitCode !== null) throw new Error("Server exited before becoming healthy.");
     try {
       const response = await fetch(baseUrl + "/api/health");
       if (response.ok) return;
@@ -35,7 +34,7 @@ async function waitForHealth(baseUrl, child) {
   throw new Error("Server did not become healthy.");
 }
 
-function startServer(port, dbPath) {
+function startServer(port, dbPath, password = testPassword) {
   return spawn(process.execPath, [serverPath], {
     cwd: path.join(__dirname, ".."),
     env: {
@@ -44,7 +43,9 @@ function startServer(port, dbPath) {
       HOST: "127.0.0.1",
       DB_PATH: dbPath,
       NODE_ENV: "test",
-      ADMIN_PASSWORD: testPassword
+      ADMIN_USERNAME: testUsername,
+      ADMIN_PASSWORD: password,
+      TRUST_PROXY: "0"
     },
     stdio: "inherit"
   });
@@ -56,7 +57,7 @@ async function stopServer(child) {
   await new Promise(resolve => child.once("exit", resolve));
 }
 
-test("startup bootstrap creates Raive, hashes password and revokes old sessions on restart", async () => {
+test("startup bootstrap is idempotent and preserves sessions unless credentials rotate", async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "unbd-bootstrap-"));
   const dbPath = path.join(directory, "bootstrap.sqlite");
   const port = await getPort();
@@ -70,43 +71,56 @@ test("startup bootstrap creates Raive, hashes password and revokes old sessions 
     const loginResponse = await fetch(baseUrl + "/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ username: "Raive", password: testPassword })
+      body: JSON.stringify({ username: testUsername, password: testPassword })
     });
     assert.equal(loginResponse.status, 200);
     const login = await loginResponse.json();
 
-    const inspect = new Database(dbPath);
+    let inspect = new Database(dbPath);
     const admin = inspect.prepare(
       "SELECT id, username, password_hash FROM admins WHERE username = ?"
-    ).get("Raive");
+    ).get(testUsername);
     assert.ok(admin);
-    assert.equal(admin.username, "Raive");
-    assert.match(admin.password_hash, /^scrypt\$16384\$8\$1\$/);
+    assert.equal(admin.username, testUsername);
+    assert.match(admin.password_hash, /^scrypt\\$16384\\$8\\$1\\$/);
     assert.notEqual(admin.password_hash, testPassword);
-    assert.equal(
-      inspect.prepare("SELECT COUNT(*) AS count FROM admin_sessions WHERE admin_id = ?")
-        .get(admin.id).count,
-      1
-    );
+    assert.equal(inspect.prepare("SELECT COUNT(*) AS count FROM admins").get().count, 1);
+    assert.equal(inspect.prepare("SELECT COUNT(*) AS count FROM admin_sessions WHERE admin_id = ?").get(admin.id).count, 1);
     inspect.close();
 
     await stopServer(child);
     child = null;
-
     child = startServer(port, dbPath);
     await waitForHealth(baseUrl, child);
 
-    const oldSession = await fetch(baseUrl + "/api/auth/session", {
+    const retainedSession = await fetch(baseUrl + "/api/auth/session", {
       headers: { authorization: "Bearer " + login.token }
     });
-    assert.equal(oldSession.status, 401);
+    assert.equal(retainedSession.status, 200);
 
-    const secondLogin = await fetch(baseUrl + "/api/auth/login", {
+    await stopServer(child);
+    child = null;
+    child = startServer(port, dbPath, "rotated-test-password-123");
+    await waitForHealth(baseUrl, child);
+
+    const revokedSession = await fetch(baseUrl + "/api/auth/session", {
+      headers: { authorization: "Bearer " + login.token }
+    });
+    assert.equal(revokedSession.status, 401);
+
+    const oldPassword = await fetch(baseUrl + "/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ username: "Raive", password: testPassword })
+      body: JSON.stringify({ username: testUsername, password: testPassword })
     });
-    assert.equal(secondLogin.status, 200);
+    assert.equal(oldPassword.status, 401);
+
+    const newPassword = await fetch(baseUrl + "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: testUsername, password: "rotated-test-password-123" })
+    });
+    assert.equal(newPassword.status, 200);
   } finally {
     await stopServer(child);
     fs.rmSync(directory, { recursive: true, force: true });

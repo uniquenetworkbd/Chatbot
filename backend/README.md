@@ -8,6 +8,7 @@ Node.js + Express 5 + better-sqlite3 API. The API stores optional conversation a
 cd backend
 npm install
 cp .env.example .env
+# Set ADMIN_USERNAME and ADMIN_PASSWORD in your local, untracked .env file.
 npm start
 ```
 
@@ -36,77 +37,27 @@ The default local database path is `backend/data/database.sqlite`. Production mu
 | POST | `/api/network/connect-test` | Admin session; ephemeral RouterOS API-SSL or SNMPv2c test |
 | GET | `/api/admin/analytics?limit=50` | Admin session token; aggregate metrics and unanswered queries |
 
-Chat-log body:
+## Security and Admin credential lifecycle
 
-```json
-{
-  "clientEventId": "event-chat-0001",
-  "sessionId": "session-id-123",
-  "userMessage": "User question",
-  "botResponse": "Local knowledge answer",
-  "category": "internet"
-}
-```
-
-Interaction body:
-
-```json
-{
-  "clientEventId": "event-int-0001",
-  "eventType": "chat_submitted",
-  "sessionId": "session-id-123",
-  "details": { "source": "web" }
-}
-```
-
-## Security
-
-- Helmet, exact-origin CORS and 16 KB JSON body limit.
-- Allowlisted payload fields; string length and control-character validation.
-- API-wide limit: 120 requests/minute/IP.
-- Write limits: 30 requests/minute/IP and 12 requests/minute per IP + session key.
-- Admin routes require a random bearer session token whose SHA-256 hash is stored in SQLite; sessions expire after 8 hours and logout revokes the token. Passwords are stored as salted scrypt hashes and verified with `timingSafeEqual()`.
-- Login attempts are limited to 5 per IP per 15 minutes. API writes and network probes retain their own rate limits.
-- Rate-limit counters use the process memory store. They reset on restart and are not shared across multiple instances; run one API instance with SQLite.
+- Admin identity is supplied by `ADMIN_USERNAME` and `ADMIN_PASSWORD` in the backend runtime secret store. Both are mandatory; startup fails closed before opening the HTTP listener if either is absent or invalid.
+- GitHub Pages is static hosting and never receives either secret. Do not put credentials in frontend JavaScript, public JSON, repository files, build artifacts, logs, or API responses.
+- For the current Codespaces-hosted backend, configure these as **Codespaces secrets** and make them available to the Codespace that runs the API. GitHub Actions repository secrets are a separate store and are not automatically injected into a Codespaces process.
+- Username: 1-80 characters after trimming; control characters are rejected. Password: 12-1024 characters. Use a unique, high-entropy password.
+- Startup bootstrap is idempotent: the existing scrypt hash is verified against the supplied secret, so an unchanged credential does not rehash the password or invalidate active sessions. A changed password generates a new salted scrypt hash and revokes that administrator's existing sessions.
+- This deployment is configured for one secret-managed administrator. Legacy administrator identities are removed during bootstrap; their sessions are removed by the database foreign-key cascade.
+- Passwords use scrypt with a random salt. Session tokens are random bearer tokens; only SHA-256 token hashes are stored. Sessions expire after 8 hours and logout revokes the current token.
+- Login attempts are limited to 5 per IP per 15 minutes. API requests and writes retain their own rate limits. Rate-limit counters use process memory and reset on restart; run one API instance with SQLite.
+- Helmet, exact-origin CORS, 16 KB JSON body limit, validated request payloads, and request logging that excludes request bodies are enabled.
+- `TRUST_PROXY` defaults to `0`. Set it to `1` only after confirming the Codespaces ingress has exactly one trusted proxy hop; incorrect proxy trust can weaken IP rate limiting.
 
 ## Network probe configuration
 
-By default `NETWORK_TARGETS_JSON=[]` returns explicitly marked demo data. To enable real TCP reachability checks, set a server-side JSON array of fixed targets, for example `[{"id":"core-router","label":"Core Router","host":"192.0.2.1","port":8729,"type":"mikrotik"}]`. Supported types: `mikrotik`, `bdcom_olt`, `generic`. Only server-configured targets are probed; the HTTP request cannot supply a host or port. A successful TCP connection proves only that the configured port accepted a connection. It is not RouterOS authentication, ICMP ping, optical RX/TX, or bandwidth measurement. The API intentionally returns no live bandwidth figure until a real device telemetry adapter is implemented.
-
-## Production environment
-
-```env
-NODE_ENV=production
-HOST=0.0.0.0
-PORT=3000
-DB_PATH=/var/data/database.sqlite
-CORS_ORIGINS=https://uniquenetworkbd.github.io
-TRUST_PROXY=0
-```
-
-Set `TRUST_PROXY=1` only when the hosting platform's network path is confirmed to contain exactly one trusted proxy hop. Incorrect proxy trust can allow spoofed client IPs and weaken IP rate limits.
-
-Configure the backend host's secret store with `ADMIN_PASSWORD` before starting the service. On startup, after database migrations and before the HTTP listener opens, the server creates or updates the fixed `Raive` administrator using a random salt and scrypt hash, then revokes existing sessions for that administrator. No manual seed command is required when this secret is configured.
-
-The password is intentionally not embedded in source control. Do not place production credentials in `.env.example`, commit history, frontend files, or public issue/PR comments. If `ADMIN_PASSWORD` is absent, startup bootstrap is skipped and existing administrator records are left unchanged. The existing `npm run seed:admin` script remains available for controlled manual administration.
+By default `NETWORK_TARGETS_JSON=[]` returns explicitly marked demo data. To enable real TCP reachability checks, set a server-side JSON array of fixed targets. A successful TCP connection proves only that the configured port accepted a connection; it is not RouterOS authentication, ICMP ping, optical RX/TX, or bandwidth measurement. Real device telemetry requires a separate adapter.
 
 ## Persistent storage and SQLite
 
-SQLite runs in WAL mode with foreign keys and busy timeout. Keep the database on a persistent volume and use a single backend instance; do not horizontally scale this SQLite deployment. Back up the database using a SQLite-consistent backup method and test restores before relying on it.
+SQLite runs in WAL mode with foreign keys and busy timeout. Keep the database on a persistent volume and use a single backend instance; do not horizontally scale this SQLite deployment. Back up the database using a SQLite-consistent backup method and test restores.
 
 ## Frontend connection
 
-Set `window.UNBD_API_BASE_URL` in `js/config.js` to the backend HTTPS origin only (no trailing `/api`). The frontend's bounded localStorage queue retries chat logs when online. If the URL is blank, local knowledge search and local history continue without backend logging.
-
-GitHub Pages serves static files only. It does not host this Node API or persistent SQLite database.
-
-
-## Router and OLT configuration bridge
-
-The frontend page is available at `layout.html?page=network-config`. It submits a one-time request to `POST /api/network/connect-test`; the backend requires a valid admin session token, validates literal IP addresses and restricts RouterOS ports to 8728/8729 and SNMP to UDP 161. No device configuration is saved to SQLite or browser storage. Request logging records only method/path/status/latency and never serializes request bodies.
-
-- **MikroTik API-SSL (8729):** performs a TLS connection with normal certificate validation, sends the RouterOS `/login` command, then requests `/system/resource/print` to obtain board/model and RouterOS version. Username/password are used only in the request, are not logged or persisted, and are never placed in browser storage. A self-signed/untrusted TLS certificate is rejected; install a trusted certificate matching the router IP/DNS name. The legacy port 8728 is deliberately TCP-reachability-only: credentials are not sent over its unencrypted connection and authentication is reported as `not_tested`.
-- **OLT SNMPv2c:** sends a standard SNMP GET for `sysDescr.0` over UDP/161 and waits up to 4.5 seconds. It validates the response envelope/community and displays the returned `sysDescr` string. Community strings are not logged or persisted, but SNMPv2c transmits them without encryption. SNMP polling uses agent UDP/161; UDP/162 is conventionally the trap receiver port and is not the default for a GET request.
-- **SNMPv3:** the UI exposes the version choice but returns `not_tested` until security username, security level, authentication and privacy parameters are added. It does not silently downgrade to v2c.
-
-Use only devices and management addresses you administer. This endpoint is admin-authenticated but can initiate outbound probes from the backend network; restrict backend egress/firewall access to the management subnets. The UI clears router password and SNMP community fields after each test attempt. The bearer session token is held in `sessionStorage` for the current tab and expires after 8 hours. Device credentials are held only in page memory for one test request.
+The frontend discovers the active Codespaces backend through `backend-url.json`. GitHub Pages serves static files only; it does not host this Node API or persistent SQLite database.
