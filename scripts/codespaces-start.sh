@@ -5,6 +5,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOG_FILE="/tmp/chatbot-api.log"
 PID_FILE="/tmp/chatbot-api.pid"
 
+# Keep the SQLite file on the persistent Codespaces workspace volume.
+# Stop/start preserves this path; deleting/rebuilding the Codespace may not.
+export DB_PATH="${ROOT_DIR}/backend/data/database.sqlite"
+mkdir -p "$(dirname "$DB_PATH")"
+export PORT="${PORT:-3000}"
+export HOST="${HOST:-0.0.0.0}"
+
 if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
   echo "[codespaces-start] Backend process already exists."
 else
