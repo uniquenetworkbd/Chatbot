@@ -8,7 +8,7 @@ const net = require("node:net");
 const Database = require("better-sqlite3");
 
 const serverPath = path.join(__dirname, "..", "server.js");
-const testPassword = "@#Raive@#";
+const testPassword = "startup-bootstrap-test-password";
 
 function getPort() {
   return new Promise((resolve, reject) => {
@@ -23,7 +23,9 @@ function getPort() {
 
 async function waitForHealth(baseUrl, child) {
   for (let attempt = 0; attempt < 80; attempt += 1) {
-    if (child.exitCode !== null) throw new Error("Server exited before becoming healthy.");
+    if (child.exitCode !== null) {
+      throw new Error("Server exited before becoming healthy.");
+    }
     try {
       const response = await fetch(baseUrl + "/api/health");
       if (response.ok) return;
@@ -42,6 +44,7 @@ function startServer(port, dbPath) {
       HOST: "127.0.0.1",
       DB_PATH: dbPath,
       NODE_ENV: "test",
+      ADMIN_PASSWORD: testPassword
     },
     stdio: "inherit"
   });
@@ -78,7 +81,7 @@ test("startup bootstrap creates Raive, hashes password and revokes old sessions 
     ).get("Raive");
     assert.ok(admin);
     assert.equal(admin.username, "Raive");
-    assert.ok(admin.password_hash.startsWith("scrypt$16384$8$1$"));
+    assert.match(admin.password_hash, /^scrypt\$16384\$8\$1\$/);
     assert.notEqual(admin.password_hash, testPassword);
     assert.equal(
       inspect.prepare("SELECT COUNT(*) AS count FROM admin_sessions WHERE admin_id = ?")
