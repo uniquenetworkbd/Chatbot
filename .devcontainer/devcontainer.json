@@ -11,8 +11,8 @@
       "visibility": "public"
     }
   },
-  "postCreateCommand": "mkdir -p backend/data && cd backend && npm install",
-  "postStartCommand": "bash scripts/codespaces-start.sh",
+  "postCreateCommand": "mkdir -p backend/data",
+  "postStartCommand": "bash scripts/auto-publish.sh",
   "customizations": {
     "codespaces": {
       "repositories": {
