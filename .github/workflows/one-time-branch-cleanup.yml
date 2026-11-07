@@ -1,0 +1,108 @@
+name: One-time verified feature branch cleanup
+
+on:
+  workflow_run:
+    workflows: ["Deploy Unique Chat to GitHub Pages"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  delete-reconciled-branches:
+    if: >-
+      ${{ github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.head_commit.message == 'chore: verify and delete reconciled feature branches' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout deployed main commit
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify all merge commits and secure bootstrap implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          for sha in \
+            2af1507a41cc449a24a50f945c4024d56baf4d74 \
+            db0816316112f4d14e4d5d7a30216e2d1a225816 \
+            a1e51137c5d3187d5f8f6c483fc0c2b83a59c2ee \
+            4f577ea4a180e640cbc92ba489b68ca0a7a74f93 \
+            d9f89003aa1e8554624eb781b0c58bc6dfac882b \
+            3e24d8505ae6621dbba573765530fe2957da0a45 \
+            4771feb92b6fd8c21a03d3956b6df7c15d779790
+          do
+            git merge-base --is-ancestor "$sha" HEAD
+            echo "VERIFIED_MAIN_ANCESTOR $sha"
+          done
+          node <<'NODE'
+          const fs = require('node:fs');
+          const assert = require('node:assert/strict');
+          const server = fs.readFileSync('backend/server.js', 'utf8');
+          for (const [label, pattern] of [
+            ['startup bootstrap', /function bootstrapAdmin\(db\)/],
+            ['deployment secret', /process\.env\.ADMIN_PASSWORD/],
+            ['salted scrypt hash', /scryptSync\(password, salt, 64/],
+            ['transactional upsert', /ON CONFLICT\(username\) DO UPDATE/],
+            ['admin session revocation', /DELETE FROM admin_sessions WHERE admin_id = \?/],
+            ['bootstrap before listen', /bootstrapAdmin\(database\.db\)/]
+          ]) {
+            assert.match(server, pattern, label);
+            console.log('VERIFIED_BOOTSTRAP ' + label);
+          }
+          assert.doesNotMatch(server, /ADMIN_PASSWORD\s*\|\|\s*["'][^"']+["']/,
+            'No hardcoded default admin password');
+          NODE
+
+      - name: Preflight exact branch heads, delete, and verify deletion
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const expected = {
+              "feat/isp-tools-wizard-analytics": "4bd9627b47580a8fe1b8840ae8397ae90251e9b8",
+              "feat/network-integration-config": "97554ce9cdb0d7b8918ed88c1b59f8c4ffb45adc",
+              "feat/secure-admin-auth-gateway": "75dc17f34fba80c96fd9fb14b241cbbf3f29553d",
+              "feature/isp-knowledge-expansion-v1": "619c4d63b0f65a1c03aceefcaa3d34c059977060",
+              "feature/secure-startup-admin-bootstrap": "4199108faa2cf24e05c0916c2e1ae8407746c418",
+              "feature/startup-admin-auto-bootstrap": "21a1257554fc0abe547bee7121ee06cfc480e02d",
+              "security/admin-seed-upsert": "367b6c2b8a5a460ed0093174bb4c35c0e3d94380"
+            };
+            const { owner, repo } = context.repo;
+
+            // Preflight every ref before deleting any of them.
+            for (const [branch, sha] of Object.entries(expected)) {
+              const current = await github.rest.git.getRef({
+                owner, repo, ref: "heads/" + branch
+              });
+              if (current.data.object.sha !== sha) {
+                throw new Error(`ABORT: ${branch} moved from expected ${sha} to ${current.data.object.sha}`);
+              }
+              core.info(`PREFLIGHT_OK ${branch} ${sha}`);
+            }
+
+            // Delete only the seven explicitly requested, preflighted refs.
+            for (const branch of Object.keys(expected)) {
+              await github.rest.git.deleteRef({
+                owner, repo, ref: "heads/" + branch
+              });
+              core.info(`DELETE_REQUEST_ACCEPTED ${branch}`);
+            }
+
+            // Verify the server-side result for every ref.
+            for (const branch of Object.keys(expected)) {
+              let exists = true;
+              try {
+                await github.rest.git.getRef({
+                  owner, repo, ref: "heads/" + branch
+                });
+              } catch (error) {
+                if (error.status === 404) exists = false;
+                else throw error;
+              }
+              if (exists) throw new Error(`DELETE_VERIFICATION_FAILED ${branch} still exists`);
+              core.info(`DELETE_VERIFIED ${branch}`);
+            }
+            core.info("ALL_SEVEN_BRANCHES_DELETED_AND_VERIFIED");
