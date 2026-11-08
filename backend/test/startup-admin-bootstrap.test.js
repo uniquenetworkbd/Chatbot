@@ -75,6 +75,14 @@ test("startup bootstrap is idempotent and preserves sessions unless credentials 
     assert.equal(loginResponse.status, 200);
     const login = await loginResponse.json();
 
+    // The backend owns the fixed identity; a client-supplied username is ignored.
+    const usernameSpoofAttempt = await fetch(baseUrl + "/api/auth/login", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username: "not-Raive", password: testPassword })
+    });
+    assert.equal(usernameSpoofAttempt.status, 200);
+
     let inspect = new Database(dbPath);
     const admin = inspect.prepare(
       "SELECT id, username, password_hash FROM admins WHERE username = ?"
@@ -122,6 +130,37 @@ test("startup bootstrap is idempotent and preserves sessions unless credentials 
     assert.equal(newPassword.status, 200);
   } finally {
     await stopServer(child);
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+
+test("startup fails closed when ADMIN_PASSWORD is missing", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "unbd-no-secret-"));
+  const dbPath = path.join(directory, "no-secret.sqlite");
+  const port = await getPort();
+  const env = {
+    ...process.env,
+    PORT: String(port),
+    HOST: "127.0.0.1",
+    DB_PATH: dbPath,
+    NODE_ENV: "test",
+    TRUST_PROXY: "0"
+  };
+  delete env.ADMIN_PASSWORD;
+  const child = spawn(process.execPath, [serverPath], {
+    cwd: path.join(__dirname, ".."),
+    env,
+    stdio: "ignore"
+  });
+  try {
+    const exit = await Promise.race([
+      new Promise(resolve => child.once("exit", (code, signal) => resolve({ code, signal }))),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Server did not fail closed without ADMIN_PASSWORD.")), 5000))
+    ]);
+    assert.notEqual(exit.code, 0);
+  } finally {
+    if (child.exitCode === null) child.kill("SIGKILL");
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
