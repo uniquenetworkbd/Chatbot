@@ -174,7 +174,7 @@ jobs:
       - name: Verify live Codespaces backend health, schema and conversation API
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --location --max-time 20 https://raw.githubusercontent.com/uniquenetworkbd/Chatbot/main/backend-url.json -o /tmp/backend-url.json
+          curl --fail --silent --show-error --location --max-time 20 https://raw.githubusercontent.com/uniquenetworkbd/Chatbot/main/backend-url.json?live_check=$(date +%s) -o /tmp/backend-url.json
           API_BASE="$(node -e 'const x=require("/tmp/backend-url.json");if(x.status!=="active"||typeof x.url!=="string"||!x.url.startsWith("https://"))process.exit(1);process.stdout.write(x.url)')"
           curl --fail --silent --show-error --location --max-time 15 "$API_BASE/api/health" -o /tmp/backend-health.json
           node -e 'const h=require("/tmp/backend-health.json");if(h.status!=="ok"||h.database!=="ok"||h.schemaVersion!==5)throw Error("Backend health/schema mismatch: "+JSON.stringify(h));console.log("PASS: backend health and schema v5")'
