@@ -62,16 +62,17 @@ async function refreshHistory(query="",archived=false){
   renderConversations(archived?data.conversations:query?data.results:data.conversations,root,archived);
  }catch(e){notify("History sync: "+e.message);}
 }
-async function createConversation(){
- const data=await api("/api/conversations",{method:"POST",body:JSON.stringify({title:"নতুন কথোপকথন",topicId:window.__unbdSelectedTopic?.id||null})});
+async function createConversation(topicId=null){
+ const data=await api("/api/conversations",{method:"POST",body:JSON.stringify({title:"নতুন কথোপকথন",topicId})});
  activeId=data.conversation.id;window.__unbdCurrentConversationId=activeId;window.__unbdSelectedTopic=null;
- window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id:activeId,messages:[]}}));
+ window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id:activeId,messages:[],selectedTopic:null}}));
  await refreshHistory();return activeId;
 }
 async function loadConversation(id){
  try{
   const data=await api("/api/conversations/"+id+"/messages");activeId=id;window.__unbdCurrentConversationId=activeId;
-  window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id,messages:data.messages}}));
+  const topic=TOPICS.find(item=>item.id===data.conversation.topic_id);const selectedTopic=topic?{id:topic.id,label:topic.label}:null;
+  window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id,messages:data.messages,selectedTopic}}));
   await refreshHistory();notify("কথোপকথন লোড হয়েছে");
  }catch(e){notify(e.message);}
 }
@@ -106,7 +107,7 @@ async function initialize(){
    const legacy=Array.from($("#message-list")?.querySelectorAll(".message")||[]).map(n=>({sender:n.classList.contains("user")?"user":"assistant",content:n.querySelector(".message-body")?.textContent||n.textContent}));
    await createConversation();
    for(const m of legacy){const id=(globalThis.crypto?.randomUUID?.()||"legacy-"+Date.now()).replace(/[^a-zA-Z0-9_-]/g,"");await api("/api/conversations/"+activeId+"/messages",{method:"POST",body:JSON.stringify({...m,clientEventId:id})});}
-   window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id:activeId,messages:legacy.map(m=>({sender:m.sender,content:m.content,created_at:new Date().toISOString()}))}}));
+   window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id:activeId,messages:legacy.map(m=>({sender:m.sender,content:m.content,created_at:new Date().toISOString()})),selectedTopic:null}}));
    await refreshHistory();
   }
   notify("History সংরক্ষণ সক্রিয় · এই ব্রাউজার প্রোফাইল");
