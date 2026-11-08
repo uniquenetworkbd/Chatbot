@@ -8,7 +8,7 @@ Node.js + Express 5 + better-sqlite3 API. The API stores optional conversation a
 cd backend
 npm install
 cp .env.example .env
-# Set ADMIN_USERNAME and ADMIN_PASSWORD in this untracked local .env file.
+# Set ADMIN_PASSWORD in this untracked local .env file.
 npm start
 ```
 
@@ -31,7 +31,7 @@ The default local database path is `backend/data/database.sqlite`. Production mu
 | POST | `/api/interactions` | Admin session; validated and rate-limited |
 | GET | `/api/interactions?limit=50` | Admin session token |
 | GET | `/api/network/status` | Admin session token; simulated or allowlisted TCP status |
-| POST | `/api/auth/login` | Public; rate-limited username/password login; returns short-lived bearer token |
+| POST | `/api/auth/login` | Public; password-only login for the fixed administrator; returns short-lived bearer token |
 | GET | `/api/auth/session` | Admin session; verifies token and expiry |
 | POST | `/api/auth/logout` | Admin session; revokes token |
 | POST | `/api/network/connect-test` | Admin session; ephemeral RouterOS API-SSL or SNMPv2c test |
@@ -87,11 +87,11 @@ TRUST_PROXY=0
 
 The server defaults to one trusted proxy hop for the current Codespaces ingress. Set `TRUST_PROXY=0` for a direct-to-backend deployment, or explicitly configure `1` only when the hosting network path is confirmed to contain exactly one trusted proxy hop. Incorrect proxy trust can allow spoofed client IPs and weaken IP rate limits.
 
-Configure both `ADMIN_USERNAME` and `ADMIN_PASSWORD` in the backend runtime secret store before starting the service. Both are mandatory; startup fails closed before the HTTP listener opens if either value is absent or invalid. The username must contain 1-80 valid characters and the password 12-1024 characters. Use a unique, high-entropy password.
+The administrator username is fixed to `Raive` in backend code. It is not configurable through environment variables, sent by the frontend, displayed in the login UI, or returned by the login/session API. Configure only `ADMIN_PASSWORD` in the backend runtime secret store before starting the service. Startup fails closed before the HTTP listener opens if the password is absent or invalid. The password must contain 12-1024 characters. Use a unique, high-entropy password.
 
-For the current Codespaces-hosted backend, configure these as **GitHub Codespaces secrets** and make them available to the Codespace running the API. GitHub Actions repository secrets are a separate store and are not automatically injected into a Codespaces process. GitHub Pages is static hosting and never receives either secret. Do not put credentials in frontend JavaScript, public JSON, repository files, build artifacts, logs, or API responses.
+For the current Codespaces-hosted backend, configure `ADMIN_PASSWORD` as a **GitHub Codespaces secret** and make it available to the Codespace running the API. GitHub Actions repository secrets are a separate store and are not automatically injected into a Codespaces process. GitHub Pages is static hosting and never receives the password. Do not put credentials in frontend JavaScript, public JSON, repository files, build artifacts, logs, or API responses.
 
-Startup bootstrap is idempotent: the existing scrypt hash is verified against the supplied secret, so unchanged credentials do not rehash the password or invalidate active sessions. A changed password generates a new salted scrypt hash and revokes that administrator's existing sessions. This deployment uses one secret-managed administrator; legacy administrator identities are removed during bootstrap and their sessions are removed by the database foreign-key cascade. The `npm run seed:admin` command uses the same bootstrap service for controlled maintenance; normal startup does not require a manual seed command.
+Startup bootstrap is idempotent: the existing scrypt hash is verified against the supplied password, so unchanged credentials do not rehash the password or invalidate active sessions. A changed password generates a new salted scrypt hash and revokes the administrator's existing sessions. This deployment enforces exactly one administrator identity named `Raive`; any legacy administrator identities are removed during bootstrap and their sessions are removed by the database foreign-key cascade. The `npm run seed:admin` command uses the same bootstrap service for controlled maintenance; normal startup does not require a manual seed command.
 
 ## Persistent storage and SQLite
 
@@ -102,7 +102,6 @@ SQLite runs in WAL mode with foreign keys and busy timeout. Keep the database on
 Set `window.UNBD_API_BASE_URL` in `js/config.js` to the backend HTTPS origin only (no trailing `/api`). The frontend's bounded localStorage queue retries chat logs when online. If the URL is blank, local knowledge search and local history continue without backend logging.
 
 GitHub Pages serves static files only. It does not host this Node API or persistent SQLite database.
-
 
 ## Router and OLT configuration bridge
 
