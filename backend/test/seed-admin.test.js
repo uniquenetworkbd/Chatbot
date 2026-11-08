@@ -9,7 +9,7 @@ const path = require("node:path");
 const { migrate } = require("../database/migrations");
 
 const script = path.join(__dirname, "..", "scripts", "seed-admin.js");
-const username = "bootstrap-admin";
+const username = "Raive";
 const testPassword = "seed-test-123456";
 
 function createDatabase() {
@@ -24,7 +24,7 @@ function createDatabase() {
 function runSeed(dbPath, password = testPassword) {
   return spawnSync(process.execPath, [script], {
     encoding: "utf8",
-    env: { ...process.env, DB_PATH: dbPath, ADMIN_USERNAME: username, ADMIN_PASSWORD: password }
+    env: { ...process.env, DB_PATH: dbPath, ADMIN_PASSWORD: password }
   });
 }
 
