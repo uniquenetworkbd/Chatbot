@@ -76,9 +76,9 @@ async function loadConversation(id){
  }catch(e){notify(e.message);}
 }
 async function persistMessage(detail){
- if(!activeId)return;
+ const conversationId=detail.conversationId||activeId;if(!conversationId)return;
  const eventId=(globalThis.crypto?.randomUUID?.()||("event-"+Date.now()+"-"+Math.random().toString(36).slice(2))).replace(/[^a-zA-Z0-9_-]/g,"");
- try{await api("/api/conversations/"+activeId+"/messages",{method:"POST",body:JSON.stringify({sender:detail.role,content:detail.text,topicId:detail.topicId||null,clientEventId:eventId})});await refreshHistory();}
+ try{await api("/api/conversations/"+conversationId+"/messages",{method:"POST",body:JSON.stringify({sender:detail.role,content:detail.text,topicId:detail.topicId||null,clientEventId:eventId})});await refreshHistory();}
  catch(e){notify("বার্তা সার্ভারে সংরক্ষণ হয়নি: "+e.message);}
 }
 async function exportConversation(id){
@@ -98,7 +98,7 @@ function addSidebarTools(){
 async function initialize(){
  addComposerMenu();addSidebarTools();
  const form=$("#chat-form");form?.addEventListener("submit",()=>{const topic=window.__unbdSelectedTopic?.id||null;const original=$("#message-input")?.value||"";window.__unbdPendingTopic=topic;window.__unbdPendingText=original;});
- window.addEventListener("unbd:message",event=>{const detail=event.detail||{};detail.topicId=detail.topicId||window.__unbdPendingTopic||window.__unbdSelectedTopic?.id||null;saving=saving.then(()=>persistMessage(detail));});
+ window.addEventListener("unbd:message",event=>{const detail=event.detail||{};detail.topicId=detail.topicId||window.__unbdPendingTopic||window.__unbdSelectedTopic?.id||null;detail.conversationId=activeId;saving=saving.then(()=>persistMessage(detail));});
  try{
   await ensureSession();const data=await api("/api/conversations");await refreshHistory();
   if(data.conversations.length){await loadConversation(data.conversations[0].id);}
@@ -106,6 +106,7 @@ async function initialize(){
    const legacy=Array.from($("#message-list")?.querySelectorAll(".message")||[]).map(n=>({sender:n.classList.contains("user")?"user":"assistant",content:n.querySelector(".message-body")?.textContent||n.textContent}));
    await createConversation();
    for(const m of legacy){const id=(globalThis.crypto?.randomUUID?.()||"legacy-"+Date.now()).replace(/[^a-zA-Z0-9_-]/g,"");await api("/api/conversations/"+activeId+"/messages",{method:"POST",body:JSON.stringify({...m,clientEventId:id})});}
+   window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id:activeId,messages:legacy.map(m=>({sender:m.sender,content:m.content,created_at:new Date().toISOString()}))}}));
    await refreshHistory();
   }
   notify("History সংরক্ষণ সক্রিয় · এই ব্রাউজার প্রোফাইল");
