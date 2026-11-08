@@ -47,13 +47,30 @@ function displayValue(value) {
   if (typeof value === "boolean") return value ? "Yes / true" : "No / false";
   return String(value);
 }
-function createPreview(doc) {
+function countNestedFields(value) {
+  if (!value || typeof value !== "object") return 0;
+  return Object.entries(value).reduce((total, [, child]) => total + 1 + countNestedFields(child), 0);
+}
+function appendStructuredValue(parent, value) {
+  if (value === null || typeof value !== "object") { parent.append($("pre", "profile-preview-value", displayValue(value))); return; }
+  if (Array.isArray(value)) {
+    const list = $("ol", "profile-preview-nested-list");
+    value.forEach((item, index) => { const entry = $("li", "profile-preview-nested-item"); entry.append($("strong", "", "[" + index + "]")); appendStructuredValue(entry, item); list.append(entry); });
+    if (!value.length) list.append($("li", "profile-preview-empty", "Empty list"));
+    parent.append(list); return;
+  }
+  const group = $("div", "profile-preview-nested-object");
+  Object.entries(value).forEach(([key, child]) => { const entry = $("section", "profile-preview-nested-field"); entry.append($("h4", "", String(key).replace(/([A-Z])/g, " $1").replace(/[_-]/g, " "))); appendStructuredValue(entry, child); group.append(entry); });
+  if (!Object.keys(value).length) group.append($("span", "profile-note", "Empty object"));
+  parent.append(group);
+}
+export function createPreview(doc) {
   const dialog = $("dialog", "profile-doc-preview");
   dialog.setAttribute("aria-label", "Complete document preview");
   const head = $("div", "profile-preview-head");
   const titleGroup = $("div");
   titleGroup.append($("h2", "", doc.id || "Knowledge document"),
-    $("p", "profile-note", "সম্পূর্ণ source record · " + Object.keys(doc).length + "টি field"));
+    $("p", "profile-note", "সম্পূর্ণ source record · " + countNestedFields(doc) + "টি field (nested সহ)"));
   const actions = $("div", "profile-preview-actions");
   const copy = $("button", "profile-button", "সম্পূর্ণ তথ্য Copy");
   copy.type = "button";
@@ -87,7 +104,8 @@ function createPreview(doc) {
   Object.entries(doc).forEach(([key, value]) => {
     const field = $("section", "profile-preview-field");
     const heading = $("h3", "", key.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " "));
-    const rendered = $("pre", "profile-preview-value", displayValue(value));
+    const rendered = $("div", "profile-preview-value");
+    appendStructuredValue(rendered, value);
     field.append(heading, rendered);
     fields.append(field);
   });
@@ -100,7 +118,7 @@ function createPreview(doc) {
   return dialog;
 }
 
-function renderDocuments(root, docs) {
+export function renderDocuments(root, docs) {
   const tools = $("div", "profile-doc-tools");
   const search = $("input", "profile-search");
   search.type = "search";
@@ -120,7 +138,7 @@ function renderDocuments(root, docs) {
   const pageSize = 30;
   const categoryCounts = new Map();
   docs.forEach(doc => {
-    const category = doc.category || "uncategorized";
+    const category = String(doc.category || "uncategorized").trim().toLocaleLowerCase() || "uncategorized";
     categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
   });
   let selected = "all", page = 0, filtered = docs;
@@ -151,8 +169,8 @@ function renderDocuments(root, docs) {
   function render() {
     const query = search.value.trim().toLocaleLowerCase();
     filtered = docs.filter(doc => {
-      const categoryMatch = selected === "all" || (doc.category || "uncategorized") === selected;
-      const searchable = Object.entries(doc).map(([key, value]) => key + " " + displayValue(value)).join(" ").toLocaleLowerCase();
+      const categoryMatch = selected === "all" || (String(doc.category || "uncategorized").trim().toLocaleLowerCase() || "uncategorized") === selected;
+      const searchable = JSON.stringify(doc).toLocaleLowerCase();
       return categoryMatch && searchable.includes(query);
     });
     const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -171,7 +189,7 @@ function renderDocuments(root, docs) {
       const desc = $("p", "", response.slice(0, 150) + (response.length > 150 ? "…" : ""));
       const meta = $("div", "profile-doc-meta");
       meta.append($("span", "profile-chip", label(doc.category)),
-        $("span", "profile-chip", (doc.keywords || []).length + " keywords"),
+        $("span", "profile-chip", (Array.isArray(doc.keywords) ? doc.keywords.length : 0) + " keywords"),
         $("span", "profile-chip", words(response) + " response words"),
         $("span", "profile-chip", Object.keys(doc).length + " fields"));
       details.append(heading, desc, meta);
