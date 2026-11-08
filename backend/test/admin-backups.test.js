@@ -1,0 +1,27 @@
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const express=require("express");
+const http=require("node:http");
+const os=require("node:os");
+const path=require("node:path");
+const fs=require("node:fs");
+const {randomBytes,createHash}=require("node:crypto");
+const {openDatabase}=require("../database/connection");
+test("admin backup API creates, verifies and downloads an intact SQLite snapshot",async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),"unbd-backup-"));
+ process.env.BACKUP_DIR=path.join(dir,"backups");
+ const backupRoute=require("../routes/admin-backups");
+ const {db}=openDatabase(path.join(dir,"live.sqlite"));
+ const admin=db.prepare("INSERT INTO admins(username,password_hash) VALUES(?,?)").run("Raive","test-hash");
+ const token=randomBytes(32).toString("base64url"),tokenHash=createHash("sha256").update(token).digest("hex");
+ db.prepare("INSERT INTO admin_sessions(admin_id,token_hash,expires_at) VALUES(?,?,?)").run(admin.lastInsertRowid,tokenHash,new Date(Date.now()+3600000).toISOString());
+ db.prepare("CREATE TABLE backup_fixture(value TEXT)").run();db.prepare("INSERT INTO backup_fixture(value) VALUES('snapshot-ok')").run();
+ const app=express();app.locals.db=db;app.use(express.json());app.use("/api/admin/backups",backupRoute);
+ const server=http.createServer(app);await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+ t.after(async()=>{await new Promise(resolve=>server.close(resolve));db.close();fs.rmSync(dir,{recursive:true,force:true});delete process.env.BACKUP_DIR;});
+ const base="http://127.0.0.1:"+server.address().port,headers={Authorization:"Bearer "+token,"Content-Type":"application/json"};
+ const created=await fetch(base+"/api/admin/backups",{method:"POST",headers,body:"{}"});assert.equal(created.status,201);const backup=await created.json();assert.equal(backup.status,"created");assert.ok(backup.fileSize>0);
+ const verified=await fetch(base+"/api/admin/backups/"+backup.id+"/verify",{method:"POST",headers,body:"{}"});assert.equal(verified.status,200);assert.equal((await verified.json()).status,"verified");
+ const downloaded=await fetch(base+"/api/admin/backups/"+backup.id+"/download",{headers});assert.equal(downloaded.status,200);const file=path.join(dir,"download.sqlite");fs.writeFileSync(file,Buffer.from(await downloaded.arrayBuffer()));
+ const Database=require("better-sqlite3"),snapshot=new Database(file,{readonly:true});assert.equal(snapshot.pragma("integrity_check",{simple:true}),"ok");assert.equal(snapshot.prepare("SELECT value FROM backup_fixture").get().value,"snapshot-ok");snapshot.close();
+});

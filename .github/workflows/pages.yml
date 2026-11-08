@@ -12,8 +12,8 @@ permissions:
   pages: write
   id-token: write
 concurrency:
-  group: github-pages
-  cancel-in-progress: false
+  group: github-pages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
       - name: Check modules
-        run: for file in js/*.js js/knowledge/*.js scripts/*.mjs; do node --experimental-default-type=module --check "$file"; done
+        run: find js -type f -name '*.js' -print0 | while IFS= read -r -d '' file; do node --experimental-default-type=module --check "$file"; done
       - name: Validate automatic Codespaces startup script
         run: |
           bash -n scripts/auto-publish.sh
@@ -63,7 +63,7 @@ jobs:
         run: |
           node --experimental-default-type=module --input-type=module <<'NODE'
           import assert from 'node:assert/strict';import {access,readFile} from 'node:fs/promises';import {searchKnowledge,FALLBACK_RESPONSE,getKnowledgeStats,tokenize} from './js/knowledge/index.js';import {professionalIspKnowledge,professionalIspKnowledgeMeta} from './js/knowledge/professional-isp.js';
-          for(const p of ['index.html','layout.html','profile.html','backend-url.json','scripts/codespaces-start.sh','scripts/publish-codespaces-backend-url.mjs','css/main.css','css/chat.css','css/navigation.css','js/config.js','js/app.js','js/navigation.js','js/knowledge/index.js','js/knowledge/company.js','js/knowledge/internet.js','js/knowledge/billing.js','js/knowledge/security.js','js/knowledge/synonyms.js','js/knowledge/professional-isp.js','js/wizard.js','js/tools-page.js','js/admin-analytics.js','css/advanced-tools.css','css/network-config.css','css/auth.css','js/network-config.js','js/auth-session.js','js/workspace.js'])await access(p);
+          for(const p of ['index.html','layout.html','profile.html','backend-url.json','scripts/codespaces-start.sh','scripts/publish-codespaces-backend-url.mjs','css/main.css','css/chat.css','css/navigation.css','js/config.js','js/app.js','js/chat-workspace.js','js/navigation.js','js/knowledge/index.js','js/knowledge/company.js','js/knowledge/internet.js','js/knowledge/billing.js','js/knowledge/security.js','js/knowledge/synonyms.js','js/knowledge/professional-isp.js','js/wizard.js','js/tools-page.js','js/admin-analytics.js','css/advanced-tools.css','css/network-config.css','css/auth.css','js/network-config.js','js/auth-session.js','js/workspace.js'])await access(p);
           const app=await readFile('js/app.js','utf8'),cfg=await readFile('js/config.js','utf8');assert.match(app,/QUEUE_KEY/);assert.match(app,/clientEventId/);assert.match(app,/AbortController/);assert.match(app,/healthCheckPromise/);assert.match(cfg,/UNBD_API_BASE_URL/);const networkUi=await readFile('js/network-config.js','utf8');assert.doesNotMatch(networkUi,/localStorage/);assert.match(networkUi,/https:/);assert.match(networkUi,/connect-test/);const auth=await readFile('js/auth-session.js','utf8');assert.doesNotMatch(auth,/sessionStorage|localStorage/);assert.match(auth,/let sessionToken =/);assert.match(auth,/initializeNavigation/);assert.match(auth,/api\/auth\/login/);assert.match(auth,/api\/auth\/logout/);assert.match(auth,/api\/auth\/session/);assert.match(auth,/ensureAuthenticated/);
           const cases=[['হ্যালো','আসসালামু আলাইকুম'],['Unique Network BD','মাইজদী সদর'],['অফিস সময়সূচি','শনিবার'],['ইন্টারনেট নেই রাউটার ONU restart','ONU/MC'],['MikroTik BDCOM OLT','MikroTik'],['bKash Nagad ONE Bank payment','bKash'],['TrxID verify','Transaction ID'],['ফেসবুক অ্যাকাউন্ট রিকভারি','Account Recovery'],['ফিশিং প্রতারণা','ফিশিং'],['black hat hacking','Black-hat']];for(const[q,w]of cases){const r=searchKnowledge(q);assert.equal(r.matched,true);assert.ok(r.response.includes(w));}const banglish=tokenize('net slow');assert.ok(banglish.includes('internet_slow'));assert.ok(banglish.includes('ইন্টারনেট'));const billing=tokenize('taka koto');assert.ok(billing.includes('billing_amount'));assert.ok(billing.includes('বিল'));const f=searchKnowledge('আজকের আবহাওয়া');assert.equal(f.matched,false);assert.equal(f.response,FALLBACK_RESPONSE);assert.equal(professionalIspKnowledge.length,940);assert.equal(professionalIspKnowledgeMeta.topicCount,188);assert.equal(professionalIspKnowledgeMeta.companyDataRequired,330);assert.equal(professionalIspKnowledgeMeta.generalGuidance,610);assert.equal(new Set(professionalIspKnowledge.map(x=>x.id)).size,940);assert.equal(getKnowledgeStats().documents,952);assert.equal(getKnowledgeStats().professionalCards,940);for(const [q,category] of [['LOS red indicator','onu'],['PPPoE discovery','advanced'],['area-wide outage','emergency'],['ticket priority','tickets']]){const r=searchKnowledge(q);assert.equal(r.matched,true,`knowledge query should match: ${q}`);assert.equal(r.category,category,`knowledge category should match: ${q}`);}console.log('PASS: frontend modules, offline queue safeguards and 940-card ISP knowledge expansion');
           NODE
@@ -80,7 +80,9 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
       - name: Run real browser interaction tests
-        run: node tests/profile.e2e.mjs
+        run: |
+          node tests/profile.e2e.mjs
+          node tests/workspace.e2e.mjs
   build:
     runs-on: ubuntu-latest
     needs: [test, browser-e2e]
@@ -162,7 +164,20 @@ jobs:
           grep -q 'overflow-y:auto' /tmp/chatbot-chat.css
           grep -q 'top:-4rem' /tmp/chatbot-chat.css
           grep -q 'chatShell.scrollTo' /tmp/chatbot-app.js
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_URL/js/chat-workspace.js" -o /tmp/chatbot-workspace.js
+          grep -q 'topic-menu-toggle' /tmp/chatbot-workspace.js
           echo "PASS: Live HTTPS homepage, profile and chat assets are reachable; fixed composer and separated scroll control are deployed."
+      - name: Verify live Codespaces backend health, schema and conversation API
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 20 https://raw.githubusercontent.com/uniquenetworkbd/Chatbot/main/backend-url.json -o /tmp/backend-url.json
+          API_BASE="$(node -e 'const x=require("/tmp/backend-url.json");if(x.status!=="active"||!/^https:\\/\\//.test(x.url))process.exit(1);process.stdout.write(x.url)')"
+          curl --fail --silent --show-error --location --max-time 15 "$API_BASE/api/health" -o /tmp/backend-health.json
+          node -e 'const h=require("/tmp/backend-health.json");if(h.status!=="ok"||h.database!=="ok"||h.schemaVersion!==5)throw Error("Backend health/schema mismatch: "+JSON.stringify(h));console.log("PASS: backend health and schema v5")'
+          STATUS="$(curl --silent --show-error --location --max-time 15 -o /tmp/conversations-auth.json -w '%{http_code}' "$API_BASE/api/conversations")"
+          test "$STATUS" = "401"
+          grep -q 'Guest session required' /tmp/conversations-auth.json
+          echo "PASS: conversation API route is live and enforces guest-session authentication."
       - name: Run real mobile browser verification against deployed HTTPS site
         env:
           SITE_URL: https://uniquenetworkbd.github.io/Chatbot

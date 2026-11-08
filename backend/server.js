@@ -44,7 +44,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(new Error("Origin not allowed by CORS"));
   },
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   maxAge: 600
 }));
@@ -84,11 +84,13 @@ app.post("/api/chat-logs", writeIpLimiter, writeSessionLimiter);
 app.post("/api/interactions", writeIpLimiter, writeSessionLimiter);
 
 app.use("/api/auth", require("./routes/auth")(dependencies));
+app.use("/api/conversations", require("./routes/conversations"));
 app.use("/api/health", require("./routes/health")(dependencies));
 app.use("/api/chat-logs", require("./routes/chat-logs")(dependencies));
 app.use("/api/interactions", require("./routes/interactions")(dependencies));
 app.use("/api/network", require("./routes/network")());
 app.use("/api/admin/analytics", require("./routes/admin-analytics")(dependencies));
+app.use("/api/admin/backups", require("./routes/admin-backups"));
 
 app.use((_req, res) => res.status(404).json({ error: "Not found" }));
 app.use(errors);

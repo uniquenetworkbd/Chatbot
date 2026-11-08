@@ -112,3 +112,14 @@ The frontend page is available at `layout.html?page=network-config`. It submits 
 - **SNMPv3:** the UI exposes the version choice but returns `not_tested` until security username, security level, authentication and privacy parameters are added. It does not silently downgrade to v2c.
 
 Use only devices and management addresses you administer. This endpoint is admin-authenticated but can initiate outbound probes from the backend network; restrict backend egress/firewall access to the management subnets. The UI clears router password and SNMP community fields after each test attempt. The bearer session token is held only in JavaScript memory (never localStorage, sessionStorage, cookies, or IndexedDB) and expires after 8 hours. A page reload clears the frontend token and requires a fresh password login; this is the deliberate safer compromise while GitHub Pages and the Codespaces API remain on different sites. Device credentials are held only in page memory for one test request.
+
+
+## Conversation history and topic routing (v1.0)
+
+- `/api/conversations/guest-sessions` issues an opaque, random bearer token for a browser profile. Only the SHA-256 token hash is stored in SQLite.
+- `/api/conversations` and its message, search, rename, archive, restore and export routes enforce guest-session ownership. No permanent-delete route exists.
+- Guest history is server-persisted but the current identity is **browser-profile scoped**, not a registered customer account. Clearing browser storage or losing the token makes that guest history inaccessible; it is not cross-device account sync. Do not describe this as full account recovery.
+- The topic menu is a UI selector. It tags the conversation and guides the existing local knowledge search; it does not create an external generative-AI model or guarantee every topic has complete verified knowledge.
+- Admin-only `/api/admin/backups` creates SQLite snapshots. `POST /:id/verify` checks SQLite integrity and SHA-256 checksum; `GET /:id/download` downloads a snapshot.
+- Offline restore utility: stop the backend first, then set `ALLOW_OFFLINE_RESTORE=1` and run `node scripts/restore-backup.js /absolute/path/to/backup.sqlite` from `backend/`. The utility validates the source and keeps a pre-restore safety copy. Never run restore while the API process is writing to the database.
+- Set `BACKUP_DIR` to a persistent mounted volume. Backups on ephemeral hosting storage are not durable.

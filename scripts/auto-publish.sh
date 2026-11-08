@@ -36,17 +36,29 @@ mkdir -p "$ROOT_DIR/backend/data"
 echo '[auto-publish] Installing backend dependencies...'
 npm --prefix "$ROOT_DIR/backend" install --no-audit --no-fund
 
-# Avoid duplicate servers. A healthy existing process is reused; otherwise start the API.
+# Reuse an existing process only when both health and the new conversation route are present.
 HEALTH_URL="${API_BASE}/api/health"
-export HEALTH_URL
-if ! node -e 'fetch(process.env.HEALTH_URL,{signal:AbortSignal.timeout(3000),cache:"no-store"}).then(async r=>{const j=await r.json();process.exit(r.ok&&j.status==="ok"&&j.database==="ok"?0:1)}).catch(()=>process.exit(1))' >/dev/null 2>&1; then
+CONVERSATIONS_URL="${API_BASE}/api/conversations"
+export HEALTH_URL CONVERSATIONS_URL
+health_ok=0
+route_ok=0
+if node -e 'fetch(process.env.HEALTH_URL,{signal:AbortSignal.timeout(3000),cache:"no-store"}).then(async r=>{const j=await r.json();process.exit(r.ok&&j.status==="ok"&&j.database==="ok"?0:1)}).catch(()=>process.exit(1)' >/dev/null 2>&1; then
+  health_ok=1
+  route_status="$(node -e 'fetch(process.env.CONVERSATIONS_URL,{signal:AbortSignal.timeout(3000),cache:"no-store"}).then(r=>{console.log(r.status)}).catch(()=>console.log("000"))')"
+  [[ "$route_status" == "401" ]] && route_ok=1
+fi
+if [[ "$health_ok" != "1" || "$route_ok" != "1" ]]; then
   if [[ -f "$BACKEND_PID" ]] && kill -0 "$(cat "$BACKEND_PID")" 2>/dev/null; then
-    echo '[auto-publish] Backend process exists; waiting for it to become healthy...'
-  else
-    echo '[auto-publish] Starting backend server in background...'
-    nohup node "$ROOT_DIR/backend/server.js" >>"$BACKEND_LOG" 2>&1 </dev/null &
-    echo "$!" >"$BACKEND_PID"
+    echo '[auto-publish] Existing backend is stale or unhealthy; restarting it for the current checkout...'
+    kill "$(cat "$BACKEND_PID")" || true
+    for attempt in $(seq 1 20); do
+      kill -0 "$(cat "$BACKEND_PID")" 2>/dev/null || break
+      sleep 1
+    done
   fi
+  echo '[auto-publish] Starting backend server in background...'
+  nohup node "$ROOT_DIR/backend/server.js" >>"$BACKEND_LOG" 2>&1 </dev/null &
+  echo "$!" >"$BACKEND_PID"
 fi
 
 healthy=0
