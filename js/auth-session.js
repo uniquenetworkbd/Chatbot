@@ -1,9 +1,9 @@
 import { getApiBaseUrl } from "./config.js";
 
-const TOKEN_KEY = "unbd-admin-session-v1";
+let sessionToken = "";
 let currentAdmin = null;
 export function getAuthToken() {
-  try { return sessionStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; }
+  return sessionToken;
 }
 export function authHeaders(extra = {}) {
   const headers = new Headers(extra);
@@ -46,12 +46,13 @@ function renderLogin(message = "") {
     event.preventDefault(); submit.disabled = true; status.textContent = "Verifying credentials…";
     try {
       const data = await api("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pass.value }) });
-      try { sessionStorage.setItem(TOKEN_KEY, data.token); } catch { throw new Error("Session storage is unavailable. Enable session storage and retry."); }
+      sessionToken = data.token;
       currentAdmin = data.admin;
       pass.value = "";
       root.remove(); document.body.classList.remove("auth-required");
       if (shell) shell.removeAttribute("aria-hidden");
-      window.location.reload();
+      const { initializeNavigation } = await import("./navigation.js");
+      initializeNavigation();
     } catch (error) { pass.value = ""; status.textContent = error.message; }
     finally { submit.disabled = false; }
   });
@@ -67,7 +68,7 @@ export async function ensureAuthenticated() {
     const shell = document.getElementById("app-shell"); shell?.removeAttribute("aria-hidden");
     return true;
   } catch {
-    try { sessionStorage.removeItem(TOKEN_KEY); } catch {}
+    sessionToken = "";
     renderLogin("Your session expired. Please log in again.");
     return false;
   }
@@ -75,7 +76,7 @@ export async function ensureAuthenticated() {
 export async function logout() {
   const token = getAuthToken();
   try { if (token) await api("/api/auth/logout", { method: "POST" }); } catch {}
-  try { sessionStorage.removeItem(TOKEN_KEY); } catch {}
+  sessionToken = "";
   currentAdmin = null;
   window.location.replace("./index.html");
 }
