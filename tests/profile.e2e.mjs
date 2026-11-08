@@ -101,8 +101,50 @@ try {
   await page.waitForTimeout(100);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   if (overflow) throw new Error("Profile page has horizontal overflow at 390px");
+  // Verify the mobile chat uses an independently scrolling conversation and a fixed composer.
+  await page.goto("http://127.0.0.1:4173/", { waitUntil: "networkidle" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator("#chat-form").waitFor();
+  await page.evaluate(() => {
+    const list = document.querySelector("#message-list");
+    document.querySelector("#welcome-panel")?.classList.add("is-hidden");
+    for (let i = 0; i < 24; i++) {
+      const item = document.createElement("article");
+      item.className = "message assistant";
+      item.textContent = "Layout regression test message " + i + " — ".repeat(12);
+      list.append(item);
+    }
+  });
+  const chatShell = page.locator(".chat-shell");
+  const composer = page.locator(".composer-wrap");
+  const topbar = page.locator(".topbar");
+  const scrollBottom = page.locator("#scroll-bottom");
+  const before = await page.evaluate(() => ({
+    composerTop: document.querySelector(".composer-wrap").getBoundingClientRect().top,
+    topbarTop: document.querySelector(".topbar").getBoundingClientRect().top,
+    composerBottom: document.querySelector(".composer-wrap").getBoundingClientRect().bottom,
+    viewportHeight: window.innerHeight
+  }));
+  await chatShell.evaluate(el => { el.scrollTop = 0; el.dispatchEvent(new Event("scroll")); });
+  await scrollBottom.waitFor({ state: "visible" });
+  const afterScroll = await page.evaluate(() => ({
+    composerTop: document.querySelector(".composer-wrap").getBoundingClientRect().top,
+    topbarTop: document.querySelector(".topbar").getBoundingClientRect().top,
+    buttonBottom: document.querySelector("#scroll-bottom").getBoundingClientRect().bottom,
+    composerTopAgain: document.querySelector(".composer-wrap").getBoundingClientRect().top,
+    pageOverflow: document.documentElement.scrollHeight > window.innerHeight + 1
+  }));
+  if (Math.abs(before.composerTop - afterScroll.composerTop) > 1) throw new Error("Composer moved while conversation was scrolled");
+  if (Math.abs(before.topbarTop - afterScroll.topbarTop) > 1) throw new Error("Top navigation moved while conversation was scrolled");
+  if (afterScroll.buttonBottom >= afterScroll.composerTopAgain - 4) throw new Error("Scroll-to-bottom button overlaps the composer");
+  if (afterScroll.pageOverflow) throw new Error("Mobile page itself scrolls instead of the conversation panel");
+  await scrollBottom.click();
+  await page.waitForFunction(() => {
+    const el = document.querySelector(".chat-shell");
+    return el.scrollHeight - el.clientHeight - el.scrollTop < 8;
+  });
   if (errors.length) throw new Error("Browser runtime errors: " + errors.join(" | "));
-  console.log("PASS: Profile loads, category menu filters, search works, pagination works, complete source fields and raw JSON display, future categories and nested fields render automatically, preview opens/closes, mobile viewport has no horizontal overflow, no uncaught page errors.");
+  console.log("PASS: Profile document/category/search tests and mobile chat layout; composer and topbar stay fixed, conversation scrolls independently, scroll button sits above composer and jumps to latest message, no horizontal/page overflow or uncaught errors.");
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));

@@ -144,9 +144,14 @@ jobs:
           grep -q './js/workspace.js' /tmp/chatbot-profile.html
           curl --fail --silent --show-error --location --max-time 20 "$SITE_URL/css/profile.css" -o /tmp/chatbot-profile.css
           curl --fail --silent --show-error --location --max-time 20 "$SITE_URL/js/profile.js" -o /tmp/chatbot-profile.js
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_URL/css/chat.css" -o /tmp/chatbot-chat.css
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_URL/js/app.js" -o /tmp/chatbot-app.js
           grep -q 'profile-doc-preview' /tmp/chatbot-profile.css
           grep -q 'initializeProfilePage' /tmp/chatbot-profile.js
           grep -q 'Document Quality & Response Metrics' /tmp/chatbot-profile.js
           grep -q 'Live System & API Monitor' /tmp/chatbot-profile.js
           grep -q 'profile-pagination' /tmp/chatbot-profile.css
-          echo "PASS: Live HTTPS homepage, profile page, profile CSS and profile JavaScript are reachable with monitoring and quality modules."
+          grep -q 'overflow-y:auto' /tmp/chatbot-chat.css
+          grep -q 'bottom:calc(100% + .75rem)' /tmp/chatbot-chat.css
+          grep -q 'chatShell.scrollTo' /tmp/chatbot-app.js
+          echo "PASS: Live HTTPS homepage, profile and chat pages, chat CSS and JavaScript are reachable; fixed composer and separated scroll control are deployed."
