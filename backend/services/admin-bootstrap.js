@@ -37,7 +37,7 @@ function verifyStoredPassword(password, encoded) {
 function bootstrapAdmin(db, env = process.env) {
   const { username, password } = readAdminCredentials(env);
   const result = db.transaction(() => {
-    const existing = db.prepare("SELECT id, username, password_hash FROM admins WHERE username = ? COLLATE BINARY").get(ADMIN_USERNAME);
+    const existing = db.prepare("SELECT id, username, password_hash FROM admins WHERE username = ? COLLATE NOCASE").get(ADMIN_USERNAME);
     let adminId;
     let action;
     let sessionsRevoked = false;
@@ -48,6 +48,9 @@ function bootstrapAdmin(db, env = process.env) {
       action = "created";
     } else {
       adminId = existing.id;
+      if (existing.username !== username) {
+        db.prepare("UPDATE admins SET username = ? WHERE id = ?").run(username, adminId);
+      }
       const passwordUnchanged = verifyStoredPassword(password, existing.password_hash);
       if (passwordUnchanged) {
         action = "unchanged";
