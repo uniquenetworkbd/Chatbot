@@ -65,3 +65,13 @@
 @media(max-width:520px){.profile-document-picker{width:100%}.profile-document-picker-panel{width:100%}.profile-doc-tools{gap:.45rem}}
 
 @media(max-width:520px){.profile-category-options{min-width:min(13rem,calc(100vw - 2rem))}.profile-category-button{text-align:left}}
+
+
+/* Document explorer controls are intentionally presented in a clear vertical sequence. */
+.profile-doc-tools{display:flex;flex-direction:column;align-items:stretch;gap:.65rem;}
+.profile-doc-tools>.profile-search{width:100%;min-width:0;flex:0 0 auto;}
+.profile-doc-tools>.profile-document-picker{width:100%;min-width:0;}
+.profile-doc-tools>.profile-document-picker>.profile-document-picker-trigger{width:100%;}
+.profile-doc-tools>.profile-document-picker>.profile-document-picker-panel{width:100%;}
+.profile-doc-tools>.profile-selected-documents{padding:.15rem 0;}
+.profile-category-menu{margin:.85rem 0;}
