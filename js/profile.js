@@ -124,7 +124,20 @@ export function renderDocuments(root, docs) {
   search.type = "search";
   search.placeholder = "ডকুমেন্টের নাম, ID, keyword বা তথ্য খুঁজুন";
   search.setAttribute("aria-label", "Search documents");
-  tools.append(search);
+
+  // A searchable multi-select document menu sits directly beside the main search.
+  const documentPicker = $("details", "profile-document-picker");
+  const pickerSummary = $("summary", "profile-document-picker-trigger", "ডকুমেন্ট বাছাই ▾");
+  const pickerPanel = $("div", "profile-document-picker-panel");
+  const pickerSearch = $("input", "profile-search profile-document-picker-search");
+  pickerSearch.type = "search";
+  pickerSearch.placeholder = "ডকুমেন্টের নাম খুঁজুন…";
+  pickerSearch.setAttribute("aria-label", "ডকুমেন্ট মেনুতে খুঁজুন");
+  const pickerList = $("div", "profile-document-picker-list");
+  const selectedNames = $("div", "profile-selected-documents");
+  pickerPanel.append(pickerSearch, pickerList);
+  documentPicker.append(pickerSummary, pickerPanel);
+  tools.append(search, documentPicker, selectedNames);
 
   const categoryNav = $("nav", "profile-category-menu");
   categoryNav.setAttribute("aria-label", "Document categories");
@@ -142,7 +155,9 @@ export function renderDocuments(root, docs) {
     categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
   });
   let selected = "all", page = 0, filtered = docs;
+  const selectedDocuments = new Set();
   const categoryButtons = new Map();
+  const documentChecks = [];
   function selectCategory(category) {
     selected = category;
     page = 0;
@@ -165,18 +180,60 @@ export function renderDocuments(root, docs) {
     categoryNav.append(button);
     categoryButtons.set(category, button);
   });
-  const categorySummary = $("p", "profile-note", "ক্যাটাগরি মেনু থেকে নির্বাচন করুন অথবা সার্চ ব্যবহার করুন।");
+
+  docs.forEach((doc, index) => {
+    const row = $("label", "profile-document-option");
+    const checkbox = $("input");
+    checkbox.type = "checkbox";
+    checkbox.value = String(index);
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) selectedDocuments.add(index);
+      else selectedDocuments.delete(index);
+      page = 0;
+      updateSelectedNames();
+      render();
+    });
+    row.append(checkbox, $("span", "", doc.id || "Unnamed document"));
+    pickerList.append(row);
+    documentChecks.push({ row, checkbox, name: String(doc.id || "Unnamed document") });
+  });
+  function updateSelectedNames() {
+    pickerSummary.textContent = selectedDocuments.size
+      ? "ডকুমেন্ট বাছাই (" + selectedDocuments.size + ") ▾"
+      : "ডকুমেন্ট বাছাই ▾";
+    selectedNames.replaceChildren();
+    [...selectedDocuments].forEach(index => {
+      const chip = $("button", "profile-selected-document-chip", documentChecks[index].name + " ×");
+      chip.type = "button";
+      chip.setAttribute("aria-label", "নির্বাচন বাতিল: " + documentChecks[index].name);
+      chip.addEventListener("click", () => {
+        selectedDocuments.delete(index);
+        documentChecks[index].checkbox.checked = false;
+        updateSelectedNames();
+        page = 0;
+        render();
+      });
+      selectedNames.append(chip);
+    });
+  }
+  pickerSearch.addEventListener("input", () => {
+    const query = pickerSearch.value.trim().toLocaleLowerCase();
+    documentChecks.forEach(({ row, name }) => { row.hidden = !name.toLocaleLowerCase().includes(query); });
+  });
+  const categorySummary = $("p", "profile-note", "ক্যাটাগরি মেনু থেকে ক্যাটাগরি এবং ডকুমেন্ট মেনু থেকে নির্দিষ্ট document নির্বাচন করুন।");
   function render() {
     const query = search.value.trim().toLocaleLowerCase();
-    filtered = docs.filter(doc => {
+    filtered = docs.filter((doc, index) => {
       const categoryMatch = selected === "all" || (String(doc.category || "uncategorized").trim().toLocaleLowerCase() || "uncategorized") === selected;
+      const documentMatch = selectedDocuments.size === 0 || selectedDocuments.has(index);
       const searchable = JSON.stringify(doc).toLocaleLowerCase();
-      return categoryMatch && searchable.includes(query);
+      return categoryMatch && documentMatch && searchable.includes(query);
     });
     const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
     page = Math.min(page, pages - 1);
     count.textContent = filtered.length + "টি document পাওয়া গেছে";
-    categorySummary.textContent = selected === "all" ? "সব ক্যাটাগরি · " + docs.length + "টি document" : label(selected) + " · " + (categoryCounts.get(selected) || 0) + "টির মধ্যে matching " + filtered.length + "টি";
+    const categoryText = selected === "all" ? "সব ক্যাটাগরি" : label(selected);
+    categorySummary.textContent = categoryText + " · " + (selectedDocuments.size ? selectedDocuments.size + "টি নির্বাচিত document" : "সব document") + " · " + filtered.length + "টি matching";
     pageText.textContent = (page + 1) + " / " + pages;
     previous.disabled = page === 0;
     next.disabled = page >= pages - 1;
@@ -211,6 +268,7 @@ export function renderDocuments(root, docs) {
   pager.append(previous, pageText, next);
   categoryButtons.get("all").classList.add("active");
   categoryButtons.get("all").setAttribute("aria-pressed", "true");
+  updateSelectedNames();
   render();
   root.append(tools, categoryNav, categorySummary, count, list, pager);
 }
