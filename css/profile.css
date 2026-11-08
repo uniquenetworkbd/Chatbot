@@ -41,3 +41,21 @@
 .profile-preview-nested-list{display:grid;gap:.45rem;margin:.35rem 0;padding-left:1.5rem}
 .profile-preview-nested-item{padding:.35rem 0;overflow-wrap:anywhere}
 .profile-preview-empty{font-size:.75rem;color:var(--muted)}
+
+
+/* Search-integrated document selector; category menu remains an independent filter. */
+.profile-doc-tools{align-items:flex-start}
+.profile-document-picker{position:relative;flex:0 0 auto;min-width:12rem}
+.profile-document-picker-trigger{min-height:2.55rem;display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.55rem .75rem;border:1px solid var(--line);border-radius:.7rem;background:var(--surface);color:var(--text);font-size:.76rem;cursor:pointer;list-style:none}
+.profile-document-picker-trigger::-webkit-details-marker{display:none}
+.profile-document-picker[open] .profile-document-picker-trigger{border-color:var(--accent);color:var(--accent)}
+.profile-document-picker-panel{position:absolute;z-index:20;top:calc(100% + .35rem);left:0;width:min(23rem,calc(100vw - 2rem));max-height:22rem;display:flex;flex-direction:column;gap:.45rem;padding:.65rem;border:1px solid var(--line);border-radius:.8rem;background:var(--surface);box-shadow:var(--shadow)}
+.profile-document-picker-search{width:100%;flex:none}
+.profile-document-picker-list{overflow:auto;min-height:2rem;max-height:16rem;display:grid;gap:.15rem}
+.profile-document-option{display:flex;align-items:center;gap:.55rem;padding:.42rem .35rem;border-radius:.45rem;font-size:.72rem;cursor:pointer;overflow-wrap:anywhere}
+.profile-document-option:hover{background:var(--surface-2)}
+.profile-document-option[hidden]{display:none}
+.profile-document-option input{accent-color:var(--accent);flex:none}
+.profile-selected-documents{display:flex;flex-wrap:wrap;gap:.3rem;width:100%}
+.profile-selected-document-chip{border:1px solid var(--accent);border-radius:99px;padding:.2rem .5rem;background:var(--surface-2);color:var(--accent);font-size:.67rem;cursor:pointer}
+@media(max-width:520px){.profile-document-picker{width:100%}.profile-document-picker-panel{width:100%}.profile-doc-tools{gap:.45rem}}
