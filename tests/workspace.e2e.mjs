@@ -55,7 +55,7 @@ try{
  const archiveButton=page.locator(".conversation-item").first().locator(".conversation-action", {hasText:"আর্কাইভ"});
  await archiveButton.click();
  await page.getByRole("button",{name:"Archived"}).click();
- await page.locator(".conversation-item").waitFor();
+ await page.locator(".conversation-item").first().waitFor();
  await page.locator(".conversation-action",{hasText:"Restore"}).first().click();
  await page.getByRole("button",{name:"+ New Chat"}).click();
  if(errors.length)throw Error("Browser runtime errors: "+errors.join(" | "));
