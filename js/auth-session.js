@@ -32,23 +32,20 @@ function renderLogin(message = "") {
   const mark = document.createElement("div"); mark.className = "auth-brand-mark"; mark.textContent = "U";
   const eyebrow = document.createElement("p"); eyebrow.className = "auth-eyebrow"; eyebrow.textContent = "UNIQUE NETWORK BD · ADMIN";
   const title = document.createElement("h1"); title.textContent = "Secure Admin Login";
-  const description = document.createElement("p"); description.textContent = "আপনার Admin username ও password দিয়ে প্রবেশ করুন।";
+  const description = document.createElement("p"); description.textContent = "আপনার Admin Password দিয়ে নিরাপদে প্রবেশ করুন।";
   const form = document.createElement("form"); form.className = "auth-form";
-  const userLabel = document.createElement("label"); userLabel.textContent = "Username";
-  const user = document.createElement("input"); user.name = "username"; user.autocomplete = "username"; user.required = true; user.maxLength = 80;
-  userLabel.append(user);
   const passLabel = document.createElement("label"); passLabel.textContent = "Password";
   const pass = document.createElement("input"); pass.name = "password"; pass.type = "password"; pass.autocomplete = "current-password"; pass.required = true; pass.maxLength = 1024;
   passLabel.append(pass);
   const status = document.createElement("p"); status.className = "auth-message"; status.setAttribute("role", "status"); status.textContent = message;
   const submit = document.createElement("button"); submit.type = "submit"; submit.textContent = "Login";
-  form.append(userLabel, passLabel, status, submit);
+  form.append(passLabel, status, submit);
   const foot = document.createElement("small"); foot.textContent = "Secure session · 8-hour expiry · This device tab only";
   panel.append(mark, eyebrow, title, description, form, foot); root.append(panel); document.body.append(root);
   form.addEventListener("submit", async event => {
     event.preventDefault(); submit.disabled = true; status.textContent = "Verifying credentials…";
     try {
-      const data = await api("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: user.value.trim(), password: pass.value }) });
+      const data = await api("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pass.value }) });
       try { sessionStorage.setItem(TOKEN_KEY, data.token); } catch { throw new Error("Session storage is unavailable. Enable session storage and retry."); }
       currentAdmin = data.admin;
       pass.value = "";
