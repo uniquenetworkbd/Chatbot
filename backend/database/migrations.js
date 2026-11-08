@@ -46,4 +46,13 @@ CREATE INDEX IF NOT EXISTS idx_conversations_guest_updated ON conversations(gues
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created ON messages(conversation_id,created_at,id);
 CREATE INDEX IF NOT EXISTS idx_messages_content_search ON messages(conversation_id,content);
 CREATE INDEX IF NOT EXISTS idx_conversation_events_conversation ON conversation_events(conversation_id,created_at);
+`);}}, {version:5,name:"database_backup_registry",up(db){db.exec(`
+CREATE TABLE IF NOT EXISTS backup_records(
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ file_name TEXT NOT NULL UNIQUE,
+ file_size INTEGER NOT NULL,
+ checksum TEXT NOT NULL,
+ status TEXT NOT NULL DEFAULT 'created' CHECK(status IN ('created','verified','failed')),
+ created_at TEXT NOT NULL DEFAULT(strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
 `);}}];function migrate(db){db.exec("CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY,name TEXT NOT NULL,applied_at TEXT NOT NULL DEFAULT(strftime('%Y-%m-%dT%H:%M:%fZ','now')))");const done=new Set(db.prepare("SELECT version FROM schema_migrations").all().map(x=>x.version));for(const m of migrations){if(done.has(m.version))continue;db.transaction(()=>{m.up(db);db.prepare("INSERT INTO schema_migrations(version,name) VALUES(?,?)").run(m.version,m.name);})();}return db.prepare("SELECT version,name,applied_at FROM schema_migrations ORDER BY version").all();}module.exports={migrate};
