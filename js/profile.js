@@ -139,8 +139,11 @@ export function renderDocuments(root, docs) {
   documentPicker.append(pickerSummary, pickerPanel);
   tools.append(search, documentPicker, selectedNames);
 
-  const categoryNav = $("nav", "profile-category-menu");
+  const categoryNav = $("details", "profile-category-menu");
   categoryNav.setAttribute("aria-label", "Document categories");
+  const categoryTrigger = $("summary", "profile-category-trigger", "Category Menu ▾");
+  const categoryOptions = $("div", "profile-category-options");
+  categoryNav.append(categoryTrigger, categoryOptions);
   const count = $("p", "profile-note", "");
   const list = $("div", "profile-doc-list");
   const pager = $("div", "profile-pagination");
@@ -160,6 +163,7 @@ export function renderDocuments(root, docs) {
   const documentChecks = [];
   function selectCategory(category) {
     selected = category;
+    categoryTrigger.textContent = (category === "all" ? "সব ক্যাটাগরি" : label(category)) + " ▾";
     page = 0;
     categoryButtons.forEach((button, key) => {
       const active = key === selected;
@@ -171,17 +175,17 @@ export function renderDocuments(root, docs) {
   const allButton = $("button", "profile-category-button", "সব ডকুমেন্ট (" + docs.length + ")");
   allButton.type = "button";
   allButton.addEventListener("click", () => selectCategory("all"));
-  categoryNav.append(allButton);
+  categoryOptions.append(allButton);
   categoryButtons.set("all", allButton);
   [...categoryCounts.entries()].sort((a, b) => b[1] - a[1]).forEach(([category, total]) => {
     const button = $("button", "profile-category-button", label(category) + " (" + total + ")");
     button.type = "button";
     button.addEventListener("click", () => selectCategory(category));
-    categoryNav.append(button);
+    categoryOptions.append(button);
     categoryButtons.set(category, button);
   });
 
-  docs.forEach((doc, index) => {
+  [...docs.entries()].sort((a, b) => String(a[1].id || "Unnamed document").localeCompare(String(b[1].id || "Unnamed document"), undefined, { sensitivity: "base" })).forEach(([index, doc]) => {
     const row = $("label", "profile-document-option");
     const checkbox = $("input");
     checkbox.type = "checkbox";
@@ -195,7 +199,7 @@ export function renderDocuments(root, docs) {
     });
     row.append(checkbox, $("span", "", doc.id || "Unnamed document"));
     pickerList.append(row);
-    documentChecks.push({ row, checkbox, name: String(doc.id || "Unnamed document") });
+    documentChecks[index] = { row, checkbox, name: String(doc.id || "Unnamed document") };
   });
   function updateSelectedNames() {
     pickerSummary.textContent = selectedDocuments.size
