@@ -152,3 +152,16 @@ A GitHub Actions green check for static frontend deployment does not prove the C
 - Report BUILT, PARTIALLY BUILT, MOCK/DEMO, NOT BUILT and UNVERIFIED separately.
 - Never call a mock API test a live production test.
 - No production success claim without GitHub Actions run evidence and live HTTPS browser evidence.
+
+
+## 12. Production release and verification record — 2026-11-08
+
+- Pull Request #16 was merged into `main` as commit `e200702c3dfb0cf39af4119f8ec3b1f719a8aa21`.
+- The later release-gate and backend-manifest safety updates are on `main`; the latest workflow change commit is `43efa99716358e96d1d3795eccda0380a3e633b1`.
+- Backend CI on the final feature commit passed **22/22 tests in three separate runs**.
+- Workspace/Profile Playwright browser CI passed in **three separate runs**, including topic insertion, message persistence, new conversation, search, archive and restore.
+- GitHub Pages production build and deployment passed. Live HTTPS homepage/profile/assets and mobile browser verification passed in three checks.
+- The production Codespaces backend did **not** pass the live API gate. Its published URL returned HTTP 404 during two checks. The manifest was therefore changed to `status: "inactive"` so the frontend does not treat an unreachable endpoint as active.
+- The backend is not declared production-ready until the Codespace `urban-robot-97vwgxrr4vqr2xjwj` is stopped and started again. Its `.devcontainer/devcontainer.json` post-start hook runs `scripts/auto-publish.sh`, which must start the backend, confirm `/api/health`, confirm `/api/conversations` returns the expected unauthenticated 401, and only then publish an active manifest.
+- After the Codespace restart, verify `/api/health` returns HTTP 200 with `schemaVersion: 5`, and verify `/api/conversations` returns HTTP 401 with `Guest session required`. The GitHub Pages workflow then performs the live release gate again.
+- Until those checks pass, server-backed chat history, archive/restore, and backup operations are **implemented and CI-tested but not production-live**. Existing local knowledge replies remain available; they are not a hosted generative AI model.
