@@ -50,9 +50,7 @@ try{
  await page.waitForTimeout(250);
  await page.locator(".history-search").fill("");
  await page.getByRole("button",{name:"+ New Chat"}).click();
- await page.waitForFunction(()=>stateNotAvailable());
- function stateNotAvailable(){return true;}
- await page.waitForTimeout(200);
+ await page.waitForFunction(()=>document.querySelectorAll(".conversation-item").length>=2);
  if(state.conversations.filter(x=>x.status==="active").length<2)throw Error("New Chat did not create a separate conversation");
  const archiveButton=page.locator(".conversation-item").first().locator(".conversation-action", {hasText:"আর্কাইভ"});
  await archiveButton.click();
