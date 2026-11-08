@@ -24,7 +24,7 @@ function verifyStoredPassword(password, encoded) {
   const parts = encoded.split("$");
   if (parts.length !== 6 || parts[0] !== "scrypt") return false;
   const [, n, r, p, saltHex, hashHex] = parts;
-  if (![n, r, p].every(value => /^\\d+$/.test(value)) ||
+  if (![n, r, p].every(value => /^\d+$/.test(value)) ||
       !/^[a-f0-9]{32}$/.test(saltHex) || !/^[a-f0-9]{128}$/.test(hashHex)) return false;
   const params = { N: Number(n), r: Number(r), p: Number(p) };
   if (!Number.isSafeInteger(params.N) || !Number.isSafeInteger(params.r) || !Number.isSafeInteger(params.p) ||
