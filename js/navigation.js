@@ -1,9 +1,11 @@
 import { getKnowledgeStats } from "./knowledge/index.js";
 import { initializeToolsPage } from "./tools-page.js";
 import { initializeAuthControls } from "./auth-session.js";
+import { initializeProfilePage } from "./profile.js";
 
 const NAV_ITEMS = [
   {id:"chat",label:"চ্যাট",icon:"◈",href:"./index.html",page:"chat"},
+  {id:"profile",label:"Chatbot Profile",icon:"◉",href:"./profile.html",page:"profile"},
   {id:"history",label:"History",icon:"◷",href:"./layout.html?page=history",page:"history"},
   {id:"tools",label:"Network Tools",icon:"⌘",href:"./layout.html?page=tools",page:"tools"},
   {id:"settings",label:"Settings",icon:"⚙",href:"./layout.html?page=settings",page:"settings"}
@@ -11,6 +13,7 @@ const NAV_ITEMS = [
 function currentPage(){
   const path=window.location.pathname;
   if(path.endsWith("/index.html")||path.endsWith("/Chatbot/")||path==="/")return "chat";
+  if(path.endsWith("/profile.html"))return "profile";
   return new URLSearchParams(window.location.search).get("page")||"settings";
 }
 function renderNavigation(){
@@ -46,6 +49,7 @@ function renderExtensionPage(){
   const page=currentPage(),title=document.getElementById("page-title"),content=document.getElementById("page-content");if(!content)return;
   content.replaceChildren();
   if(page==="tools"){title.textContent="Network Tools";initializeToolsPage(content);return;}
+  if(page==="profile"){title.textContent="Chatbot Profile";initializeProfilePage(content);return;}
   const heading=document.createElement("h2"),paragraph=document.createElement("p");content.append(heading,paragraph);
   if(page==="history"){
     heading.textContent="History";paragraph.textContent="এই ব্রাউজারে সংরক্ষিত সাম্প্রতিক কথোপকথন।";let history=[];
