@@ -1,9 +1,10 @@
 {
   "schemaVersion": 1,
-  "status": "active",
+  "status": "inactive",
   "url": "https://urban-robot-97vwgxrr4vqr2xjwj-3000.app.github.dev",
   "port": 3000,
   "codespace": "urban-robot-97vwgxrr4vqr2xjwj",
-  "updatedAt": "2026-11-07T14:19:38.000Z",
-  "expiresAt": "2026-11-14T14:19:38.000Z"
+  "updatedAt": "2026-11-08T09:15:13.555Z",
+  "expiresAt": "2026-11-14T14:19:38.000Z",
+  "statusReason": "Production health check returned HTTP 404. Re-enable only after Codespaces startup publishes a healthy backend with schema version 5."
 }
