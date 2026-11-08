@@ -100,3 +100,36 @@ jobs:
           timeout: 1200000
           error_count: 20
           reporting_interval: 10000
+  verify-live:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Verify deployed website and Chatbot Profile over HTTPS
+        env:
+          SITE_URL: https://uniquenetworkbd.github.io/Chatbot
+        run: |
+          set -euo pipefail
+          fetch_page() {
+            local url="$1"
+            local output="$2"
+            for attempt in $(seq 1 18); do
+              if curl --fail --silent --show-error --location --max-time 20 "$url?live_check=$(date +%s)" -o "$output"; then
+                return 0
+              fi
+              echo "Attempt $attempt/18: waiting for GitHub Pages propagation..."
+              sleep 5
+            done
+            echo "ERROR: HTTPS page did not become available: $url"
+            return 1
+          }
+          fetch_page "$SITE_URL/" /tmp/chatbot-home.html
+          fetch_page "$SITE_URL/profile.html" /tmp/chatbot-profile.html
+          grep -q 'Unique Network BD' /tmp/chatbot-home.html
+          grep -q 'Chatbot Profile | Unique Network BD' /tmp/chatbot-profile.html
+          grep -q './js/workspace.js' /tmp/chatbot-profile.html
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_URL/css/profile.css" -o /tmp/chatbot-profile.css
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_URL/js/profile.js" -o /tmp/chatbot-profile.js
+          grep -q 'profile-doc-preview' /tmp/chatbot-profile.css
+          grep -q 'initializeProfilePage' /tmp/chatbot-profile.js
+          echo "PASS: Live HTTPS homepage, profile page, profile CSS and profile JavaScript are reachable."
