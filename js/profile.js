@@ -39,20 +39,63 @@ function progressPanel(title, rows) {
   });
   return box;
 }
+function displayValue(value) {
+  if (value === null) return "null";
+  if (value === undefined) return "Not supplied";
+  if (Array.isArray(value)) return value.length ? value.map(item => typeof item === "object" && item !== null ? JSON.stringify(item, null, 2) : String(item)).join("\n\n") : "Empty list";
+  if (typeof value === "object") return JSON.stringify(value, null, 2);
+  if (typeof value === "boolean") return value ? "Yes / true" : "No / false";
+  return String(value);
+}
 function createPreview(doc) {
   const dialog = $("dialog", "profile-doc-preview");
-  dialog.setAttribute("aria-label", "Document preview");
+  dialog.setAttribute("aria-label", "Complete document preview");
   const head = $("div", "profile-preview-head");
+  const titleGroup = $("div");
+  titleGroup.append($("h2", "", doc.id || "Knowledge document"),
+    $("p", "profile-note", "সম্পূর্ণ source record · " + Object.keys(doc).length + "টি field"));
+  const actions = $("div", "profile-preview-actions");
+  const copy = $("button", "profile-button", "সম্পূর্ণ তথ্য Copy");
+  copy.type = "button";
+  copy.addEventListener("click", async () => {
+    const text = JSON.stringify(doc, null, 2);
+    try {
+      await navigator.clipboard.writeText(text);
+      copy.textContent = "কপি হয়েছে";
+    } catch {
+      const area = $("textarea", "profile-copy-fallback");
+      area.value = text;
+      dialog.append(area);
+      area.focus();
+      area.select();
+      copy.textContent = "নিচের তথ্য Select করে Copy করুন";
+    }
+  });
   const close = $("button", "profile-button", "বন্ধ করুন");
   close.type = "button";
   close.addEventListener("click", () => dialog.close());
-  head.append($("h2", "", doc.id || "Knowledge document"), close);
-  const meta = $("p", "profile-note", label(doc.category) + " · " + (doc.keywords?.length || 0) + " keywords · " + words(doc.response) + " response words");
-  const body = $("div", "profile-preview-body", doc.response || "এই ডকুমেন্টে response content নেই।");
-  const keywordTitle = $("h3", "", "Keywords");
-  const keywords = $("div", "profile-preview-keywords");
-  (doc.keywords || []).forEach(word => keywords.append($("span", "profile-chip", word)));
-  dialog.append(head, meta, body, keywordTitle, keywords);
+  actions.append(copy, close);
+  head.append(titleGroup, actions);
+
+  const overview = $("div", "profile-preview-overview");
+  overview.append(
+    $("span", "profile-chip", "Category: " + label(doc.category)),
+    $("span", "profile-chip", "Keywords: " + (Array.isArray(doc.keywords) ? doc.keywords.length : 0)),
+    $("span", "profile-chip", "Response: " + words(doc.response) + " words")
+  );
+  const fields = $("div", "profile-preview-fields");
+  Object.entries(doc).forEach(([key, value]) => {
+    const field = $("section", "profile-preview-field");
+    const heading = $("h3", "", key.replace(/([A-Z])/g, " $1").replace(/[_-]/g, " "));
+    const rendered = $("pre", "profile-preview-value", displayValue(value));
+    field.append(heading, rendered);
+    fields.append(field);
+  });
+  const raw = $("details", "profile-preview-raw");
+  const summary = $("summary", "", "সম্পূর্ণ Raw JSON দেখুন");
+  const json = $("pre", "profile-preview-value profile-preview-json", JSON.stringify(doc, null, 2));
+  raw.append(summary, json);
+  dialog.append(head, overview, fields, raw);
   dialog.addEventListener("click", event => { if (event.target === dialog) dialog.close(); });
   return dialog;
 }
@@ -60,14 +103,13 @@ function createPreview(doc) {
 function renderDocuments(root, docs) {
   const tools = $("div", "profile-doc-tools");
   const search = $("input", "profile-search");
-  const filter = $("select", "profile-filter");
   search.type = "search";
-  search.placeholder = "ডকুমেন্টের নাম, ID বা keyword খুঁজুন";
+  search.placeholder = "ডকুমেন্টের নাম, ID, keyword বা তথ্য খুঁজুন";
   search.setAttribute("aria-label", "Search documents");
-  filter.setAttribute("aria-label", "Filter documents by category");
-  [["all", "সব ক্যাটাগরি"], ...[...new Set(docs.map(d => d.category))].map(c => [c, label(c)])]
-    .forEach(([value, text]) => { const option = $("option", "", text); option.value = value; filter.append(option); });
-  tools.append(search, filter);
+  tools.append(search);
+
+  const categoryNav = $("nav", "profile-category-menu");
+  categoryNav.setAttribute("aria-label", "Document categories");
   const count = $("p", "profile-note", "");
   const list = $("div", "profile-doc-list");
   const pager = $("div", "profile-pagination");
@@ -76,15 +118,47 @@ function renderDocuments(root, docs) {
   const pageText = $("span", "profile-note", "");
   previous.type = next.type = "button";
   const pageSize = 30;
-  let page = 0, filtered = docs;
+  const categoryCounts = new Map();
+  docs.forEach(doc => {
+    const category = doc.category || "uncategorized";
+    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);
+  });
+  let selected = "all", page = 0, filtered = docs;
+  const categoryButtons = new Map();
+  function selectCategory(category) {
+    selected = category;
+    page = 0;
+    categoryButtons.forEach((button, key) => {
+      const active = key === selected;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    render();
+  }
+  const allButton = $("button", "profile-category-button", "সব ডকুমেন্ট (" + docs.length + ")");
+  allButton.type = "button";
+  allButton.addEventListener("click", () => selectCategory("all"));
+  categoryNav.append(allButton);
+  categoryButtons.set("all", allButton);
+  [...categoryCounts.entries()].sort((a, b) => b[1] - a[1]).forEach(([category, total]) => {
+    const button = $("button", "profile-category-button", label(category) + " (" + total + ")");
+    button.type = "button";
+    button.addEventListener("click", () => selectCategory(category));
+    categoryNav.append(button);
+    categoryButtons.set(category, button);
+  });
+  const categorySummary = $("p", "profile-note", "ক্যাটাগরি মেনু থেকে নির্বাচন করুন অথবা সার্চ ব্যবহার করুন।");
   function render() {
     const query = search.value.trim().toLocaleLowerCase();
-    const selected = filter.value;
-    filtered = docs.filter(doc => (selected === "all" || doc.category === selected) &&
-      [doc.id, doc.category, ...(doc.keywords || []), doc.response].join(" ").toLocaleLowerCase().includes(query));
+    filtered = docs.filter(doc => {
+      const categoryMatch = selected === "all" || (doc.category || "uncategorized") === selected;
+      const searchable = Object.entries(doc).map(([key, value]) => key + " " + displayValue(value)).join(" ").toLocaleLowerCase();
+      return categoryMatch && searchable.includes(query);
+    });
     const pages = Math.max(1, Math.ceil(filtered.length / pageSize));
     page = Math.min(page, pages - 1);
     count.textContent = filtered.length + "টি document পাওয়া গেছে";
+    categorySummary.textContent = selected === "all" ? "সব ক্যাটাগরি · " + docs.length + "টি document" : label(selected) + " · " + (categoryCounts.get(selected) || 0) + "টির মধ্যে matching " + filtered.length + "টি";
     pageText.textContent = (page + 1) + " / " + pages;
     previous.disabled = page === 0;
     next.disabled = page >= pages - 1;
@@ -98,9 +172,10 @@ function renderDocuments(root, docs) {
       const meta = $("div", "profile-doc-meta");
       meta.append($("span", "profile-chip", label(doc.category)),
         $("span", "profile-chip", (doc.keywords || []).length + " keywords"),
-        $("span", "profile-chip", words(response) + " response words"));
+        $("span", "profile-chip", words(response) + " response words"),
+        $("span", "profile-chip", Object.keys(doc).length + " fields"));
       details.append(heading, desc, meta);
-      const button = $("button", "profile-button", "Preview ↗");
+      const button = $("button", "profile-button", "সম্পূর্ণ Preview ↗");
       button.type = "button";
       button.addEventListener("click", () => {
         const dialog = createPreview(doc);
@@ -113,12 +188,13 @@ function renderDocuments(root, docs) {
     });
   }
   search.addEventListener("input", () => { page = 0; render(); });
-  filter.addEventListener("change", () => { page = 0; render(); });
   previous.addEventListener("click", () => { page--; render(); });
   next.addEventListener("click", () => { page++; render(); });
   pager.append(previous, pageText, next);
+  categoryButtons.get("all").classList.add("active");
+  categoryButtons.get("all").setAttribute("aria-pressed", "true");
   render();
-  root.append(tools, count, list, pager);
+  root.append(tools, categoryNav, categorySummary, count, list, pager);
 }
 
 function renderQuality(root, docs) {
@@ -200,7 +276,7 @@ async function renderLiveMonitoring(root) {
     const run = runs.workflow_runs?.[0];
     deploymentCard.replaceChildren(
       $("strong", "", "Latest main commit · " + String(commit.sha || "").slice(0, 7)),
-      $("span", "", safe(commit.commit?.message).split("\n")[0]),
+      $("span", "", String(commit.commit?.message || "Commit message unavailable").split("\n")[0]),
       $("span", "", "Committed " + (commit.commit?.committer?.date || "unknown")),
       $("span", "", run ? "Latest workflow: " + run.status + (run.conclusion ? " / " + run.conclusion : "") : "No workflow run found"),
       $("span", "", run?.html_url || "Workflow URL unavailable")
