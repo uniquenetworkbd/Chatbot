@@ -37,6 +37,19 @@ try {
   if (!(await page.locator(".profile-doc").count())) throw new Error("Category menu did not filter documents");
   if (await categoryButton.getAttribute("aria-pressed") !== "true") throw new Error("Selected category is not marked active");
   await categoryButtons.first().click();
+
+  // The document-name dropdown is inside the search toolbar and works independently.
+  const documentPicker = page.locator("details.profile-document-picker");
+  await documentPicker.locator("summary").click();
+  await documentPicker.getByRole("searchbox", { name: "ডকুমেন্ট মেনুতে খুঁজুন" }).fill("internet");
+  const documentOption = documentPicker.locator(".profile-document-option:visible").first();
+  const selectedDocumentName = await documentOption.locator("span").textContent();
+  await documentOption.locator("input").check();
+  if (!(await page.locator(".profile-doc").count())) throw new Error("Selected document did not filter explorer results");
+  const visibleDocumentNames = await page.locator(".profile-doc h3").allTextContents();
+  if (!visibleDocumentNames.every(name => name === selectedDocumentName)) throw new Error("Document selector did not restrict results to selected document");
+  if (!(await page.locator(".profile-selected-document-chip").count())) throw new Error("Selected document chip was not displayed");
+  await documentOption.locator("input").uncheck();
   await page.getByRole("searchbox", { name: "Search documents" }).fill("internet");
   if (!(await page.locator(".profile-doc").count())) throw new Error("Document search returned no results");
   await page.getByRole("searchbox", { name: "Search documents" }).fill("");
