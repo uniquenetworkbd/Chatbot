@@ -41,7 +41,7 @@ Run backend tests with `npm test` and migrations with `npm run migrate` from the
 
 ## Frontend API configuration
 
-After hosting the backend, edit `js/config.js`:
+Before starting the backend, configure only `ADMIN_PASSWORD` in the backend runtime secret store. The administrator identity is fixed to `Raive` in backend code and is not requested or displayed by the frontend. After hosting the backend, edit `js/config.js`:
 
 ```js
 window.UNBD_API_BASE_URL = "https://YOUR-BACKEND-HOST";
@@ -55,7 +55,7 @@ Use the HTTPS origin only; do not append `/api`. Never expose admin passwords or
 2. Install command: `npm install`; start command: `npm start`.
 3. Attach a persistent disk/volume at a provider-supported mount path such as `/var/data`.
 4. Set `DB_PATH=/var/data/database.sqlite`; do not store production SQLite on ephemeral application storage.
-5. After the backend is running, create the first admin from the backend shell using `ADMIN_USERNAME`, `ADMIN_PASSWORD`, and `npm run seed:admin` (password minimum 14 bytes).
+5. Configure `ADMIN_PASSWORD` (12–1024 characters) in the backend host secret store. Startup automatically creates or updates the fixed `Raive` administrator; no manual seed command or username secret is required.
 6. Set `NODE_ENV=production` and `CORS_ORIGINS=https://uniquenetworkbd.github.io`.
 7. Keep `TRUST_PROXY=0` unless the host's proxy topology is confirmed and exactly configured.
 8. Verify `GET /api/health` returns HTTP 200 with `database: "ok"`.
@@ -65,7 +65,7 @@ A provider's free tier may sleep, impose quotas, or charge for persistent disks.
 
 ## Secure administrator access
 
-The application displays an admin login gate before initializing chat, tools, analytics or configuration views. The backend stores admin passwords only as salted scrypt hashes (`admins.password_hash`), issues random 8-hour bearer sessions, stores only SHA-256 token hashes in SQLite, and revokes sessions on logout. First-admin creation is an explicit operator action: `cd backend`, export `ADMIN_USERNAME` and `ADMIN_PASSWORD` in the shell, then run `npm run seed:admin`. The seed script requires a password of at least 14 bytes and never prints it. `sessionStorage` contains only the bearer token, not the password. All protected API reads/writes and network probes require a valid session.
+The application displays an admin login gate before initializing chat, tools, analytics or configuration views. The backend fixes the administrator username to `Raive` in server-side code and accepts only `ADMIN_PASSWORD` from the runtime secret store. Startup automatically creates the administrator; the password is stored only as a salted scrypt hash (`admins.password_hash`). The API issues random 8-hour bearer sessions, stores only SHA-256 token hashes in SQLite, and revokes sessions on logout or password rotation. `sessionStorage` contains only the bearer token, not the password. The login form contains no username field. All protected API reads/writes and network probes require a valid session.
 
 **Hosting boundary:** GitHub Pages is static hosting. The JavaScript login gate controls the rendered UI but cannot make static HTML/JS files private or prevent a determined visitor from downloading them. Backend data and operations are server-enforced behind session authentication. If the requirement is to hide the actual static page assets from unauthenticated HTTP clients, serve the frontend through the authenticated Express host (or a server-side access gateway) instead of public GitHub Pages.
 
