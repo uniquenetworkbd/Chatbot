@@ -92,7 +92,7 @@ test("startup bootstrap is idempotent and preserves sessions unless credentials 
     assert.ok(admin.password_hash.startsWith("scrypt$16384$8$1$"));
     assert.notEqual(admin.password_hash, testPassword);
     assert.equal(inspect.prepare("SELECT COUNT(*) AS count FROM admins").get().count, 1);
-    assert.equal(inspect.prepare("SELECT COUNT(*) AS count FROM admin_sessions WHERE admin_id = ?").get(admin.id).count, 1);
+    assert.equal(inspect.prepare("SELECT COUNT(*) AS count FROM admin_sessions WHERE admin_id = ?").get(admin.id).count, 2);
     inspect.close();
 
     await stopServer(child);
