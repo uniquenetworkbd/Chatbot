@@ -21,7 +21,7 @@ function parseHash(value) {
   const parts = value.split("$");
   if (parts.length !== 6 || parts[0] !== "scrypt") return null;
   const [, n, r, p, salt, hash] = parts;
-  if (!/^\\d+$/.test(n) || !/^\\d+$/.test(r) || !/^\\d+$/.test(p) || !/^[a-f0-9]{32}$/.test(salt) || !/^[a-f0-9]{128}$/.test(hash)) return null;
+  if (!/^\d+$/.test(n) || !/^\d+$/.test(r) || !/^\d+$/.test(p) || !/^[a-f0-9]{32}$/.test(salt) || !/^[a-f0-9]{128}$/.test(hash)) return null;
   const params = { n: Number(n), r: Number(r), p: Number(p) };
   if (!Number.isSafeInteger(params.n) || !Number.isSafeInteger(params.r) || !Number.isSafeInteger(params.p) ||
       params.n < 2 || params.n > 262144 || params.r < 1 || params.r > 32 || params.p < 1 || params.p > 16) return null;
