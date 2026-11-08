@@ -45,11 +45,11 @@ function renderConversations(rows,root,archived=false){
  root.replaceChildren();
  if(!rows.length){root.append(el("p","history-empty","এখনো কোনো কথোপকথন নেই।"));return;}
  rows.forEach(row=>{
-  const item=el("article","conversation-item"+(row.id===activeId?" is-active":""));
+  const item=el("article","conversation-item"+(row.id===activeId?" is-active":""));item.dataset.conversationId=row.id;
   const open=el("button","conversation-open");open.type="button";open.append(el("strong","conversation-title",row.title||"নতুন কথোপকথন"),el("small","conversation-preview",row.last_message||row.updated_at||""));open.addEventListener("click",()=>void loadConversation(row.id));item.append(open);
   const actions=el("div","conversation-actions");
   const rename=el("button","conversation-action","নাম");rename.type="button";rename.title="Rename";rename.addEventListener("click",async()=>{const title=window.prompt("কথোপকথনের নতুন নাম",row.title);if(!title?.trim())return;try{await api("/api/conversations/"+row.id,{method:"PATCH",body:JSON.stringify({title:title.trim()})});await refreshHistory();}catch(e){notify(e.message);}});actions.append(rename);
-  if(archived){const restore=el("button","conversation-action","Restore");restore.type="button";restore.addEventListener("click",async()=>{try{await api("/api/conversations/"+row.id+"/restore",{method:"POST",body:"{}"});await refreshHistory("",true);}catch(e){notify(e.message);}});actions.append(restore);}else{const archive=el("button","conversation-action","আর্কাইভ");archive.type="button";archive.addEventListener("click",async()=>{try{await api("/api/conversations/"+row.id+"/archive",{method:"POST",body:"{}"});if(activeId===row.id)await createConversation();await refreshHistory();}catch(e){notify(e.message);}});actions.append(archive);}
+  if(archived){const restore=el("button","conversation-action","Restore");restore.type="button";restore.addEventListener("click",async()=>{try{await api("/api/conversations/"+row.id+"/restore",{method:"POST",body:"{}"});await refreshHistory("",true);}catch(e){notify(e.message);}});actions.append(restore);}else{const archive=el("button","conversation-action","আর্কাইভ");archive.type="button";archive.addEventListener("click",async()=>{try{await api("/api/conversations/"+row.id+"/archive",{method:"POST",body:"{}"});if(activeId===row.id)await createConversation();else await refreshHistory();}catch(e){notify(e.message);}});actions.append(archive);}
   const exportButton=el("button","conversation-action","Export");exportButton.type="button";exportButton.addEventListener("click",()=>void exportConversation(row.id));actions.append(exportButton);
   item.append(actions);root.append(item);
  });
