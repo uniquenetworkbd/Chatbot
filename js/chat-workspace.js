@@ -41,7 +41,7 @@ function addComposerMenu(){
  toggle.addEventListener("click",()=>{menu.hidden=!menu.hidden;toggle.setAttribute("aria-expanded",String(!menu.hidden));});
  document.addEventListener("click",e=>{if(!menu.contains(e.target)&&!toggle.contains(e.target)){menu.hidden=true;toggle.setAttribute("aria-expanded","false");}});
 }
-function renderConversations(rows,root){
+function renderConversations(rows,root,archived=false){
  root.replaceChildren();
  if(!rows.length){root.append(el("p","history-empty","এখনো কোনো কথোপকথন নেই।"));return;}
  rows.forEach(row=>{
@@ -49,17 +49,17 @@ function renderConversations(rows,root){
   const open=el("button","conversation-open");open.type="button";open.append(el("strong","conversation-title",row.title||"নতুন কথোপকথন"),el("small","conversation-preview",row.last_message||row.updated_at||""));open.addEventListener("click",()=>void loadConversation(row.id));item.append(open);
   const actions=el("div","conversation-actions");
   const rename=el("button","conversation-action","নাম");rename.type="button";rename.title="Rename";rename.addEventListener("click",async()=>{const title=window.prompt("কথোপকথনের নতুন নাম",row.title);if(!title?.trim())return;try{await api("/api/conversations/"+row.id,{method:"PATCH",body:JSON.stringify({title:title.trim()})});await refreshHistory();}catch(e){notify(e.message);}});actions.append(rename);
-  const archive=el("button","conversation-action","আর্কাইভ");archive.type="button";archive.addEventListener("click",async()=>{try{await api("/api/conversations/"+row.id+"/archive",{method:"POST",body:"{}"});if(activeId===row.id)await createConversation();await refreshHistory();}catch(e){notify(e.message);}});actions.append(archive);
+  if(archived){const restore=el("button","conversation-action","Restore");restore.type="button";restore.addEventListener("click",async()=>{try{await api("/api/conversations/"+row.id+"/restore",{method:"POST",body:"{}"});await refreshHistory("",true);}catch(e){notify(e.message);}});actions.append(restore);}else{const archive=el("button","conversation-action","আর্কাইভ");archive.type="button";archive.addEventListener("click",async()=>{try{await api("/api/conversations/"+row.id+"/archive",{method:"POST",body:"{}"});if(activeId===row.id)await createConversation();await refreshHistory();}catch(e){notify(e.message);}});actions.append(archive);}
   const exportButton=el("button","conversation-action","Export");exportButton.type="button";exportButton.addEventListener("click",()=>void exportConversation(row.id));actions.append(exportButton);
   item.append(actions);root.append(item);
  });
 }
 function notify(message){const node=$("#workspace-status");if(node)node.textContent=message;}
-async function refreshHistory(query=""){
+async function refreshHistory(query="",archived=false){
  const root=$("#conversation-history-list");if(!root||!token)return;
  try{
-  const data=query?await api("/api/conversations/search?q="+encodeURIComponent(query)):await api("/api/conversations");
-  renderConversations(query?data.results:data.conversations,root);
+  const data=archived?await api("/api/conversations/archived/list"):query?await api("/api/conversations/search?q="+encodeURIComponent(query)):await api("/api/conversations");
+  renderConversations(archived?data.conversations:query?data.results:data.conversations,root,archived);
  }catch(e){notify("History sync: "+e.message);}
 }
 async function createConversation(){
@@ -89,7 +89,7 @@ function addSidebarTools(){
  const sidebar=$("#app-sidebar");if(!sidebar||$("#conversation-workspace"))return;
  const section=el("section","conversation-workspace");section.id="conversation-workspace";
  const top=el("div","conversation-workspace-top");top.append(el("strong","","কথোপকথন"));
- const fresh=el("button","new-chat-button","+ New Chat");fresh.type="button";fresh.addEventListener("click",async()=>{try{await createConversation();notify("নতুন কথোপকথন শুরু হয়েছে");}catch(e){notify(e.message);}});top.append(fresh);section.append(top);
+ const fresh=el("button","new-chat-button","+ New Chat");fresh.type="button";fresh.addEventListener("click",async()=>{try{await createConversation();notify("নতুন কথোপকথন শুরু হয়েছে");}catch(e){notify(e.message);}});const archived=el("button","new-chat-button","Archived");archived.type="button";archived.addEventListener("click",()=>void refreshHistory("",true));top.append(fresh,archived);section.append(top);
  const search=el("input","history-search");search.type="search";search.placeholder="পুরোনো চ্যাট খুঁজুন...";search.setAttribute("aria-label","কথোপকথন খুঁজুন");let timer;search.addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(()=>void refreshHistory(search.value.trim()),180);});section.append(search);
  const list=el("div","conversation-history-list");list.id="conversation-history-list";section.append(list);
  const status=el("small","workspace-status");status.id="workspace-status";status.textContent="History সংযোগ হচ্ছে...";section.append(status);
