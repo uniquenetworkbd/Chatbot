@@ -64,13 +64,13 @@ async function refreshHistory(query="",archived=false){
 }
 async function createConversation(){
  const data=await api("/api/conversations",{method:"POST",body:JSON.stringify({title:"নতুন কথোপকথন",topicId:window.__unbdSelectedTopic?.id||null})});
- activeId=data.conversation.id;window.__unbdSelectedTopic=null;
+ activeId=data.conversation.id;window.__unbdCurrentConversationId=activeId;window.__unbdSelectedTopic=null;
  window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id:activeId,messages:[]}}));
  await refreshHistory();return activeId;
 }
 async function loadConversation(id){
  try{
-  const data=await api("/api/conversations/"+id+"/messages");activeId=id;
+  const data=await api("/api/conversations/"+id+"/messages");activeId=id;window.__unbdCurrentConversationId=activeId;
   window.dispatchEvent(new CustomEvent("unbd:conversation-load",{detail:{id,messages:data.messages}}));
   await refreshHistory();notify("কথোপকথন লোড হয়েছে");
  }catch(e){notify(e.message);}
@@ -98,7 +98,7 @@ function addSidebarTools(){
 async function initialize(){
  addComposerMenu();addSidebarTools();
  const form=$("#chat-form");form?.addEventListener("submit",()=>{const topic=window.__unbdSelectedTopic?.id||null;const original=$("#message-input")?.value||"";window.__unbdPendingTopic=topic;window.__unbdPendingText=original;});
- window.addEventListener("unbd:message",event=>{const detail=event.detail||{};detail.topicId=detail.topicId||window.__unbdPendingTopic||window.__unbdSelectedTopic?.id||null;detail.conversationId=activeId;saving=saving.then(()=>persistMessage(detail));});
+ window.addEventListener("unbd:message",event=>{const detail=event.detail||{};detail.topicId=detail.topicId||window.__unbdPendingTopic||window.__unbdSelectedTopic?.id||null;detail.conversationId=detail.conversationId||window.__unbdCurrentConversationId||activeId;saving=saving.then(()=>persistMessage(detail));});
  try{
   await ensureSession();const data=await api("/api/conversations");await refreshHistory();
   if(data.conversations.length){await loadConversation(data.conversations[0].id);}
