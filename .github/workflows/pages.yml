@@ -174,6 +174,10 @@ jobs:
         env:
           SITE_URL: https://uniquenetworkbd.github.io/Chatbot
         run: node tests/live-chat.e2e.mjs
+      - name: Run real browser verification against deployed Chatbot Profile
+        env:
+          SITE_URL: https://uniquenetworkbd.github.io/Chatbot
+        run: node tests/live-profile.e2e.mjs
       - name: Verify live Codespaces backend health, schema and conversation API
         run: |
           set -euo pipefail
