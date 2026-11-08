@@ -8,7 +8,7 @@ const net = require("node:net");
 const Database = require("better-sqlite3");
 
 const serverPath = path.join(__dirname, "..", "server.js");
-const testUsername = "bootstrap-admin";
+const testUsername = "Raive";
 const testPassword = "boot-test-123456";
 
 function getPort() {
@@ -43,7 +43,6 @@ function startServer(port, dbPath, password = testPassword) {
       HOST: "127.0.0.1",
       DB_PATH: dbPath,
       NODE_ENV: "test",
-      ADMIN_USERNAME: testUsername,
       ADMIN_PASSWORD: password,
       TRUST_PROXY: "0"
     },
@@ -71,7 +70,7 @@ test("startup bootstrap is idempotent and preserves sessions unless credentials 
     const loginResponse = await fetch(baseUrl + "/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ username: testUsername, password: testPassword })
+      body: JSON.stringify({ password: testPassword })
     });
     assert.equal(loginResponse.status, 200);
     const login = await loginResponse.json();
@@ -118,7 +117,7 @@ test("startup bootstrap is idempotent and preserves sessions unless credentials 
     const newPassword = await fetch(baseUrl + "/api/auth/login", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ username: testUsername, password: "rotated-test-password-123" })
+      body: JSON.stringify({ password: "rotated-test-password-123" })
     });
     assert.equal(newPassword.status, 200);
   } finally {
