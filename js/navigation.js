@@ -1,14 +1,11 @@
 import { getKnowledgeStats } from "./knowledge/index.js";
 import { initializeToolsPage } from "./tools-page.js";
-import { initializeAdminAnalytics } from "./admin-analytics.js";
 import { initializeAuthControls } from "./auth-session.js";
 
 const NAV_ITEMS = [
   {id:"chat",label:"চ্যাট",icon:"◈",href:"./index.html",page:"chat"},
   {id:"history",label:"History",icon:"◷",href:"./layout.html?page=history",page:"history"},
   {id:"tools",label:"Network Tools",icon:"⌘",href:"./layout.html?page=tools",page:"tools"},
-  {id:"network-config",label:"Router & OLT Config",icon:"⌁",href:"./layout.html?page=network-config",page:"network-config"},
-  {id:"analytics",label:"Admin Analytics",icon:"▥",href:"./layout.html?page=analytics",page:"analytics"},
   {id:"settings",label:"Settings",icon:"⚙",href:"./layout.html?page=settings",page:"settings"}
 ];
 function currentPage(){
@@ -49,8 +46,6 @@ function renderExtensionPage(){
   const page=currentPage(),title=document.getElementById("page-title"),content=document.getElementById("page-content");if(!content)return;
   content.replaceChildren();
   if(page==="tools"){title.textContent="Network Tools";initializeToolsPage(content);return;}
-  if(page==="network-config"){title.textContent="Router & OLT Config";import("./network-config.js").then(({initializeNetworkConfig})=>initializeNetworkConfig(content)).catch(error=>{content.textContent="Network configuration module failed to load: "+error.message;});return;}
-  if(page==="analytics"){title.textContent="Admin Analytics";initializeAdminAnalytics(content);return;}
   const heading=document.createElement("h2"),paragraph=document.createElement("p");content.append(heading,paragraph);
   if(page==="history"){
     heading.textContent="History";paragraph.textContent="এই ব্রাউজারে সংরক্ষিত সাম্প্রতিক কথোপকথন।";let history=[];
