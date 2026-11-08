@@ -84,6 +84,7 @@ app.post("/api/chat-logs", writeIpLimiter, writeSessionLimiter);
 app.post("/api/interactions", writeIpLimiter, writeSessionLimiter);
 
 app.use("/api/auth", require("./routes/auth")(dependencies));
+app.use("/api/conversations", require("./routes/conversations"));
 app.use("/api/health", require("./routes/health")(dependencies));
 app.use("/api/chat-logs", require("./routes/chat-logs")(dependencies));
 app.use("/api/interactions", require("./routes/interactions")(dependencies));
