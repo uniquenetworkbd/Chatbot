@@ -1,0 +1,36 @@
+const test=require("node:test");
+const assert=require("node:assert/strict");
+const express=require("express");
+const http=require("node:http");
+const os=require("node:os");
+const path=require("node:path");
+const fs=require("node:fs");
+const {openDatabase}=require("../database/connection");
+const conversations=require("../routes/conversations");
+test("guest conversations persist, isolate ownership, search, archive and restore without deletion",async t=>{
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),"unbd-conversations-"));
+ const {db}=openDatabase(path.join(dir,"test.sqlite"));
+ const app=express();app.locals.db=db;app.use(express.json());app.use("/api/conversations",conversations);
+ const server=http.createServer(app);await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+ t.after(async()=>{await new Promise(resolve=>server.close(resolve));db.close();fs.rmSync(dir,{recursive:true,force:true});});
+ const base="http://127.0.0.1:"+server.address().port;
+ async function request(path,options={}){const r=await fetch(base+path,{...options,headers:{"Content-Type":"application/json",...(options.headers||{})}});return {status:r.status,data:await r.json()};}
+ const a=await request("/api/conversations/guest-sessions",{method:"POST",body:"{}"});
+ const b=await request("/api/conversations/guest-sessions",{method:"POST",body:"{}"});
+ assert.equal(a.status,201);assert.equal(b.status,201);assert.notEqual(a.data.token,b.data.token);
+ const auth={Authorization:"Bearer "+a.data.token};
+ const created=await request("/api/conversations",{method:"POST",headers:auth,body:JSON.stringify({title:"নতুন কথোপকথন",topicId:"mikrotik_isp"})});
+ assert.equal(created.status,201);const id=created.data.conversation.id;
+ const message=await request("/api/conversations/"+id+"/messages",{method:"POST",headers:auth,body:JSON.stringify({sender:"user",content:"PPPoE client offline",topicId:"mikrotik_isp",clientEventId:"test-event-0001"})});
+ assert.equal(message.status,201);assert.equal(message.data.message.content,"PPPoE client offline");
+ const duplicate=await request("/api/conversations/"+id+"/messages",{method:"POST",headers:auth,body:JSON.stringify({sender:"user",content:"PPPoE client offline",topicId:"mikrotik_isp",clientEventId:"test-event-0001"})});
+ assert.equal(duplicate.status,200);assert.equal(duplicate.data.duplicate,true);
+ const other=await request("/api/conversations/"+id+"/messages",{headers:{Authorization:"Bearer "+b.data.token}});
+ assert.equal(other.status,404);
+ const search=await request("/api/conversations/search?q=PPPoE",{headers:auth});assert.equal(search.status,200);assert.equal(search.data.results.length,1);
+ const archived=await request("/api/conversations/"+id+"/archive",{method:"POST",headers:auth,body:"{}"});assert.equal(archived.data.status,"archived");
+ const hidden=await request("/api/conversations",{headers:auth});assert.equal(hidden.data.conversations.length,0);
+ const restored=await request("/api/conversations/"+id+"/restore",{method:"POST",headers:auth,body:"{}"});assert.equal(restored.data.status,"active");
+ const messages=await request("/api/conversations/"+id+"/messages",{headers:auth});assert.equal(messages.data.messages.length,1);
+ const exported=await request("/api/conversations/"+id+"/export",{headers:auth});assert.equal(exported.data.messages.length,1);
+});
