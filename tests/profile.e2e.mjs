@@ -29,8 +29,10 @@ try {
   await page.getByRole("heading", { name: "Brain & Knowledge Overview" }).waitFor();
   await page.locator(".profile-doc").first().waitFor();
   if (await page.locator(".profile-doc").count() > 30) throw new Error("Pagination should cap first page at 30 documents");
-  const categoryButtons = page.locator(".profile-category-button");
-  if (await categoryButtons.count() < 2) throw new Error("Category menu buttons were not rendered");
+  const categoryMenu = page.locator("details.profile-category-menu");
+  await categoryMenu.locator("summary").click();
+  const categoryButtons = categoryMenu.locator(".profile-category-button");
+  if (await categoryButtons.count() < 2) throw new Error("Category dropdown options were not rendered");
   const categoryButton = categoryButtons.nth(1);
   const categoryLabel = await categoryButton.textContent();
   await categoryButton.click();
@@ -74,6 +76,9 @@ try {
     const root = document.createElement("section");
     renderDocuments(root, fixture);
     document.body.append(root);
+    const categoryMenu = root.querySelector("details.profile-category-menu");
+    if (!categoryMenu) throw new Error("Category dropdown menu was not rendered");
+    categoryMenu.open = true;
     const category = [...root.querySelectorAll(".profile-category-button")].find(button => button.textContent.includes("future-category"));
     if (!category) throw new Error("New category was not generated from document data");
     category.click();
