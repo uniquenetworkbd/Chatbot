@@ -3,7 +3,7 @@ const {randomBytes,createHash,randomUUID}=require("node:crypto");
 const {requireGuest}=require("../middleware/guest-session");
 const router=express.Router();
 const hash=t=>createHash("sha256").update(t,"utf8").digest("hex");
-const validText=(v,max)=>typeof v==="string"&&v.trim().length>0&&v.trim().length<=max&&!/[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F\\u007F]/.test(v);
+const validText=(v,max)=>typeof v==="string"&&v.trim().length>0&&v.trim().length<=max&&![...v].some(ch=>{const n=ch.charCodeAt(0);return n<=8||(n>=11&&n<=12)||(n>=14&&n<=31)||n===127;});
 function owned(db,id,guestId){return db.prepare("SELECT * FROM conversations WHERE id=? AND guest_session_id=?").get(id,guestId);}
 router.post("/guest-sessions",(req,res)=>{
  const token=randomBytes(32).toString("base64url");
