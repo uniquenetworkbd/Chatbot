@@ -1,19 +1,16 @@
 const { randomBytes, scryptSync, timingSafeEqual } = require("node:crypto");
 
+const ADMIN_USERNAME = "Raive";
 const SCRYPT = Object.freeze({ N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 });
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_PASSWORD_LENGTH = 1024;
 
 function readAdminCredentials(env = process.env) {
-  const username = typeof env.ADMIN_USERNAME === "string" ? env.ADMIN_USERNAME.trim() : "";
   const password = env.ADMIN_PASSWORD;
-  if (!username || username.length > 80 || /[\u0000-\u001f\u007f]/.test(username)) {
-    throw new Error("ADMIN_USERNAME is required and must contain 1-80 valid characters. Configure it in the backend runtime secret store.");
-  }
   if (typeof password !== "string" || password.length < MIN_PASSWORD_LENGTH || password.length > MAX_PASSWORD_LENGTH) {
     throw new Error("ADMIN_PASSWORD is required and must contain 12-1024 characters. Configure it in the backend runtime secret store.");
   }
-  return { username, password };
+  return { username: ADMIN_USERNAME, password };
 }
 
 function encodePassword(password) {
@@ -27,7 +24,7 @@ function verifyStoredPassword(password, encoded) {
   const parts = encoded.split("$");
   if (parts.length !== 6 || parts[0] !== "scrypt") return false;
   const [, n, r, p, saltHex, hashHex] = parts;
-  if (![n, r, p].every(value => /^\d+$/.test(value)) ||
+  if (![n, r, p].every(value => /^\\d+$/.test(value)) ||
       !/^[a-f0-9]{32}$/.test(saltHex) || !/^[a-f0-9]{128}$/.test(hashHex)) return false;
   const params = { N: Number(n), r: Number(r), p: Number(p) };
   if (!Number.isSafeInteger(params.N) || !Number.isSafeInteger(params.r) || !Number.isSafeInteger(params.p) ||
@@ -40,7 +37,7 @@ function verifyStoredPassword(password, encoded) {
 function bootstrapAdmin(db, env = process.env) {
   const { username, password } = readAdminCredentials(env);
   const result = db.transaction(() => {
-    const existing = db.prepare("SELECT id, username, password_hash FROM admins WHERE username = ? COLLATE NOCASE").get(username);
+    const existing = db.prepare("SELECT id, username, password_hash FROM admins WHERE username = ? COLLATE BINARY").get(ADMIN_USERNAME);
     let adminId;
     let action;
     let sessionsRevoked = false;
@@ -53,35 +50,29 @@ function bootstrapAdmin(db, env = process.env) {
       adminId = existing.id;
       const passwordUnchanged = verifyStoredPassword(password, existing.password_hash);
       if (passwordUnchanged) {
-        if (existing.username !== username) {
-          db.prepare("UPDATE admins SET username = ? WHERE id = ?").run(username, adminId);
-          action = "username_updated";
-        } else {
-          action = "unchanged";
-        }
+        action = "unchanged";
       } else {
-        db.prepare("UPDATE admins SET username = ?, password_hash = ? WHERE id = ?")
-          .run(username, encodePassword(password), adminId);
+        db.prepare("UPDATE admins SET password_hash = ? WHERE id = ?").run(encodePassword(password), adminId);
         db.prepare("DELETE FROM admin_sessions WHERE admin_id = ?").run(adminId);
         sessionsRevoked = true;
-        action = "credentials_rotated";
+        action = "password_rotated";
       }
     }
 
-    // This deployment has one secret-managed administrator. Remove legacy or
-    // manually-created identities; foreign-key cascade removes their sessions.
+    // Exactly one administrator identity is supported; its username is fixed in backend code.
     const removed = db.prepare("DELETE FROM admins WHERE id <> ?").run(adminId).changes;
     if (removed > 0) sessionsRevoked = true;
 
     const admin = db.prepare("SELECT id, username FROM admins WHERE id = ?").get(adminId);
-    if (!admin || admin.username !== username) throw new Error("Admin bootstrap did not persist the configured identity.");
-    return { action, admin, sessionsRevoked, legacyAdminsRemoved: removed };
+    if (!admin || admin.username !== ADMIN_USERNAME) throw new Error("Admin bootstrap did not persist the fixed administrator identity.");
+    return { action, admin: { id: admin.id }, sessionsRevoked, legacyAdminsRemoved: removed };
   })();
 
   console.log(JSON.stringify({
     level: "info",
     event: "admin_auto_bootstrap_completed",
     action: result.action,
+    administrator: "fixed",
     passwordStoredAs: "salted scrypt hash",
     sessionsRevoked: result.sessionsRevoked,
     legacyAdminsRemoved: result.legacyAdminsRemoved
@@ -89,4 +80,4 @@ function bootstrapAdmin(db, env = process.env) {
   return result;
 }
 
-module.exports = { bootstrapAdmin, readAdminCredentials };
+module.exports = { ADMIN_USERNAME, bootstrapAdmin, readAdminCredentials };
