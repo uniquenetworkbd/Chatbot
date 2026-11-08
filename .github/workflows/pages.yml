@@ -119,6 +119,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: deploy
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Playwright Chromium for live-site browser verification
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
       - name: Verify deployed website and Chatbot Profile over HTTPS
         env:
           SITE_URL: https://uniquenetworkbd.github.io/Chatbot
@@ -152,6 +160,10 @@ jobs:
           grep -q 'Live System & API Monitor' /tmp/chatbot-profile.js
           grep -q 'profile-pagination' /tmp/chatbot-profile.css
           grep -q 'overflow-y:auto' /tmp/chatbot-chat.css
-          grep -q 'bottom:calc(100% + .75rem)' /tmp/chatbot-chat.css
+          grep -q 'top:-4rem' /tmp/chatbot-chat.css
           grep -q 'chatShell.scrollTo' /tmp/chatbot-app.js
-          echo "PASS: Live HTTPS homepage, profile and chat pages, chat CSS and JavaScript are reachable; fixed composer and separated scroll control are deployed."
+          echo "PASS: Live HTTPS homepage, profile and chat assets are reachable; fixed composer and separated scroll control are deployed."
+      - name: Run real mobile browser verification against deployed HTTPS site
+        env:
+          SITE_URL: https://uniquenetworkbd.github.io/Chatbot
+        run: node tests/live-chat.e2e.mjs
