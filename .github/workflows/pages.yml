@@ -81,8 +81,11 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Run real browser interaction tests
         run: |
-          node tests/profile.e2e.mjs
-          node tests/workspace.e2e.mjs
+          for run in 1 2 3; do
+            echo "Browser regression pass $run/3"
+            node tests/profile.e2e.mjs
+            node tests/workspace.e2e.mjs
+          done
   build:
     runs-on: ubuntu-latest
     needs: [test, browser-e2e]
