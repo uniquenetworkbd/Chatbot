@@ -29,6 +29,17 @@ try {
   await page.getByRole("heading", { name: "Brain & Knowledge Overview" }).waitFor();
   await page.locator(".profile-doc").first().waitFor();
   if (await page.locator(".profile-doc").count() > 30) throw new Error("Pagination should cap first page at 30 documents");
+  // Extension pages must scroll inside .app-main while the topbar remains visible.
+  const profileMain = page.locator(".app-main");
+  if (await profileMain.evaluate(el => getComputedStyle(el).overflowY) !== "auto") throw new Error("Profile page does not own a vertical scroll container");
+  const profileScroll = await profileMain.evaluate(el => ({client:el.clientHeight,scroll:el.scrollHeight}));
+  if (profileScroll.scroll <= profileScroll.client) throw new Error("Profile content is clipped instead of scrollable");
+  const stickyTop = await page.locator(".topbar").evaluate(el => getComputedStyle(el).position);
+  if (stickyTop !== "sticky") throw new Error("Profile topbar is not sticky during page scrolling");
+  await profileMain.evaluate(el => { el.scrollTop = el.scrollHeight; });
+  if (await profileMain.evaluate(el => el.scrollTop <= 0)) throw new Error("Profile page cannot scroll down");
+  await profileMain.evaluate(el => { el.scrollTop = 0; });
+  if (await profileMain.evaluate(el => el.scrollTop !== 0)) throw new Error("Profile page cannot scroll back up");
   const categoryMenu = page.locator("details.profile-category-menu");
   await categoryMenu.locator("summary").click();
   const categoryButtons = categoryMenu.locator(".profile-category-button");
@@ -97,6 +108,11 @@ try {
     return true;
   });
   if (!dynamicResult) throw new Error("Schema-independence fixture did not complete");
+  const toolbarDirection = await page.locator(".profile-doc-tools").evaluate(el => getComputedStyle(el).flexDirection);
+  if (toolbarDirection !== "column") throw new Error("Profile document controls are not arranged sequentially");
+  const searchBox = page.locator(".profile-doc-tools > .profile-search");
+  const pickerBox = page.locator(".profile-doc-tools > .profile-document-picker");
+  if ((await searchBox.boundingBox()).y >= (await pickerBox.boundingBox()).y) throw new Error("Document search must appear before document picker");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(100);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
