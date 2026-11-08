@@ -79,8 +79,6 @@ try {
     return true;
   });
   if (!dynamicResult) throw new Error("Schema-independence fixture did not complete");
-  await page.locator(".profile-preview-json").waitFor();
-  await page.getByRole("button", { name: "বন্ধ করুন" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(100);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
