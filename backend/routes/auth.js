@@ -3,6 +3,7 @@ const rateLimit = require("express-rate-limit");
 const { randomBytes, createHash, scrypt: scryptCallback, timingSafeEqual } = require("node:crypto");
 const { promisify } = require("node:util");
 const scrypt = promisify(scryptCallback);
+const { ADMIN_USERNAME } = require("../services/admin-bootstrap");
 const { requireAdmin } = require("../middleware/security");
 
 const router = express.Router();
@@ -20,8 +21,11 @@ function parseHash(value) {
   const parts = value.split("$");
   if (parts.length !== 6 || parts[0] !== "scrypt") return null;
   const [, n, r, p, salt, hash] = parts;
-  if (!/^\d+$/.test(n) || !/^\d+$/.test(r) || !/^\d+$/.test(p) || !/^[a-f0-9]{32}$/.test(salt) || !/^[a-f0-9]{128}$/.test(hash)) return null;
-  return { n: Number(n), r: Number(r), p: Number(p), salt, hash };
+  if (!/^\\d+$/.test(n) || !/^\\d+$/.test(r) || !/^\\d+$/.test(p) || !/^[a-f0-9]{32}$/.test(salt) || !/^[a-f0-9]{128}$/.test(hash)) return null;
+  const params = { n: Number(n), r: Number(r), p: Number(p) };
+  if (!Number.isSafeInteger(params.n) || !Number.isSafeInteger(params.r) || !Number.isSafeInteger(params.p) ||
+      params.n < 2 || params.n > 262144 || params.r < 1 || params.r > 32 || params.p < 1 || params.p > 16) return null;
+  return { ...params, salt, hash };
 }
 async function verifyPassword(password, encoded) {
   const parsed = parseHash(encoded);
@@ -34,26 +38,25 @@ module.exports = ({ db }) => {
   router.post("/login", loginLimiter, async (req, res, next) => {
     res.set("Cache-Control", "no-store");
     try {
-      const { username, password } = req.body || {};
-      if (typeof username !== "string" || typeof password !== "string" ||
-          username.length < 1 || username.length > 80 || password.length < 1 || password.length > 1024) {
-        return res.status(400).json({ error: "Username and password are required." });
+      const { password } = req.body || {};
+      if (typeof password !== "string" || password.length < 1 || password.length > 1024) {
+        return res.status(400).json({ error: "Password is required." });
       }
-      const admin = db.prepare("SELECT id, username, password_hash FROM admins WHERE username = ? COLLATE BINARY").get(username.trim());
+      const admin = db.prepare("SELECT id, password_hash FROM admins WHERE username = ? COLLATE BINARY").get(ADMIN_USERNAME);
       const valid = admin ? await verifyPassword(password, admin.password_hash) : false;
-      if (!valid) return res.status(401).json({ error: "Invalid username or password." });
+      if (!valid) return res.status(401).json({ error: "Invalid password." });
 
       const token = randomBytes(32).toString("base64url");
       const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
       db.prepare("DELETE FROM admin_sessions WHERE expires_at <= ?").run(new Date().toISOString());
       db.prepare("INSERT INTO admin_sessions(admin_id, token_hash, expires_at) VALUES(?,?,?)")
         .run(admin.id, tokenHash(token), expiresAt);
-      return res.status(200).json({ token, tokenType: "Bearer", expiresAt, admin: { id: admin.id, username: admin.username } });
+      return res.status(200).json({ token, tokenType: "Bearer", expiresAt, admin: { id: admin.id } });
     } catch (error) { return next(error); }
   });
 
   router.get("/session", requireAdmin, (req, res) => {
-    res.set("Cache-Control", "no-store").json({ authenticated: true, admin: req.admin, expiresAt: req.admin.expiresAt });
+    res.set("Cache-Control", "no-store").json({ authenticated: true, admin: { id: req.admin.id }, expiresAt: req.admin.expiresAt });
   });
 
   router.post("/logout", requireAdmin, (req, res) => {
