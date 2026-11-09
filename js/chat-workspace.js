@@ -87,7 +87,7 @@ async function exportConversation(id){
  catch(e){notify("Export failed: "+e.message);}
 }
 async function initialize(){
- addComposerMenu();addSidebarTools();
+ addComposerMenu();
  const form=$("#chat-form");form?.addEventListener("submit",()=>{const topic=window.__unbdSelectedTopic?.id||null;const original=$("#message-input")?.value||"";window.__unbdPendingTopic=topic;window.__unbdPendingText=original;});
  window.addEventListener("unbd:message",event=>{const detail=event.detail||{};detail.topicId=detail.topicId||window.__unbdPendingTopic||window.__unbdSelectedTopic?.id||null;detail.conversationId=detail.conversationId||window.__unbdCurrentConversationId||activeId;saving=saving.then(()=>persistMessage(detail));});
  try{
