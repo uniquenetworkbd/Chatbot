@@ -5,6 +5,9 @@ let currentAdmin = null;
 export function getAuthToken() {
   return sessionToken;
 }
+export function getCurrentAdmin() {
+  return currentAdmin;
+}
 export function authHeaders(extra = {}) {
   const headers = new Headers(extra);
   const token = getAuthToken();
@@ -47,12 +50,13 @@ function renderLogin(message = "") {
     try {
       const data = await api("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: pass.value }) });
       sessionToken = data.token;
-      currentAdmin = data.admin;
+      currentAdmin = { ...data.admin, expiresAt: data.expiresAt };
       pass.value = "";
       root.remove(); document.body.classList.remove("auth-required");
       if (shell) shell.removeAttribute("aria-hidden");
       const { initializeNavigation } = await import("./navigation.js");
       initializeNavigation();
+      window.dispatchEvent(new CustomEvent("unbd:admin-authenticated"));
     } catch (error) { pass.value = ""; status.textContent = error.message; }
     finally { submit.disabled = false; }
   });
@@ -63,7 +67,7 @@ export async function ensureAuthenticated() {
   if (!token) { renderLogin(); return false; }
   try {
     const data = await api("/api/auth/session");
-    currentAdmin = data.admin;
+    currentAdmin = { ...data.admin, expiresAt: data.expiresAt };
     document.body.classList.remove("auth-required");
     const shell = document.getElementById("app-shell"); shell?.removeAttribute("aria-hidden");
     return true;
