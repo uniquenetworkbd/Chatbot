@@ -93,7 +93,7 @@ export function initializeNetworkConfig(root) {
   root.replaceChildren(make("h2", "Router & OLT Integration"), intro, security, routerPanel, oltPanel);
 
   async function request(payload, button, notice, status) {
-    const base = getApiBaseUrl();
+    const base = await getApiBaseUrl();
     if (!base) {
       notice.textContent = "Backend URL is not configured. Set UNBD_API_BASE_URL in js/config.js to your self-hosted HTTPS API origin.";
       return;
