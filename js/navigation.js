@@ -78,13 +78,20 @@ function renderHistoryPage(content,title){
   toolbar.append(search,archive);content.append(intro,toolbar);
   const list=create("div","history-list");list.id="history-page-list";content.append(list);
   const render=()=>{
-    const history=readArray(HISTORY_KEY),query=search.value.trim().toLocaleLowerCase("bn");
+    const history=readArray(HISTORY_KEY),archived=readArray(ARCHIVE_KEY),query=search.value.trim().toLocaleLowerCase("bn");
     list.replaceChildren();
-    const filtered=history.filter(item=>!query||item.text.toLocaleLowerCase("bn").includes(query));
-    if(!filtered.length){list.append(create("p","empty-state",query?"এই শব্দের সঙ্গে মেলে এমন কোনো বার্তা পাওয়া যায়নি।":"এখনো কোনো সংরক্ষিত কথোপকথন নেই।"));return;}
-    filtered.forEach((item,index)=>{
-      const card=create("article","extension-card history-entry"),label=create("strong","",item.role==="user"?"আপনি":"Unique Network BD সহায়তা"),message=create("p","",item.text);
-      const stamp=create("small","history-timestamp",item.timestamp?new Date(item.timestamp).toLocaleString("bn-BD"):"");card.append(label,message,stamp);list.append(card);
+    const entries=[
+      ...history.map(item=>({item,archived:false,archivedAt:""})),
+      ...archived.flatMap(group=>(group.messages||[]).map(item=>({item,archived:true,archivedAt:group.archivedAt||""})))
+    ].filter(entry=>!query||String(entry.item.text||"").toLocaleLowerCase("bn").includes(query));
+    if(!entries.length){list.append(create("p","empty-state",query?"এই শব্দের সঙ্গে মেলে এমন কোনো বার্তা পাওয়া যায়নি।":"এখনো কোনো সংরক্ষিত কথোপকথন নেই।"));return;}
+    entries.forEach(entry=>{
+      const item=entry.item;
+      const card=create("article","extension-card history-entry"+(entry.archived?" archived-history-entry":""));
+      const label=create("strong","",(entry.archived?"Archived · ":"")+(item.role==="user"?"আপনি":"Unique Network BD সহায়তা"));
+      const message=create("p","",item.text);
+      const stamp=create("small","history-timestamp",entry.archived?("Archived · "+(entry.archivedAt?new Date(entry.archivedAt).toLocaleString("bn-BD"):"")):(item.timestamp?new Date(item.timestamp).toLocaleString("bn-BD"):""));
+      card.append(label,message,stamp);list.append(card);
     });
   };
   search.addEventListener("input",render);
