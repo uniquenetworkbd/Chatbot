@@ -42,7 +42,7 @@ try{
  const search=page.getByRole("searchbox",{name:"চ্যাট ইতিহাসে খুঁজুন"});await search.fill("PPPoE");
  if(await page.locator(".history-entry").count()!==1)throw Error("History page search did not filter the matching message");
  await search.fill("");await page.getByRole("button",{name:"বর্তমান চ্যাট আর্কাইভ করুন"}).click();
- await page.locator(".history-entry").waitFor({state:"detached"});
+ await page.waitForFunction(()=>document.querySelectorAll(".archived-history-entry").length===2&&document.querySelectorAll(".history-entry:not(.archived-history-entry)").length===0);
  await page.goto("http://127.0.0.1:4174/layout.html?page=archived",{waitUntil:"networkidle"});
  if(await page.locator(".archived-entry").count()!==1)throw Error("Archived page did not show the conversation");
  await page.getByRole("button",{name:"Restore"}).click();await page.waitForURL(/layout\.html\?page=history/);
