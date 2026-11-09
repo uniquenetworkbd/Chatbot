@@ -60,7 +60,7 @@ function initializeNavigation(){
   toggle?.addEventListener("click",event=>{event.stopPropagation();setOpen(!aside.classList.contains("is-open"));});
   close.addEventListener("click",()=>setOpen(false,true));backdrop.addEventListener("click",()=>setOpen(false));
   document.addEventListener("click",event=>{if(!aside.classList.contains("is-open"))return;const target=event.target;if(!(target instanceof Node))return;if(!aside.contains(target)&&!toggle?.contains(target))setOpen(false);});
-  document.addEventListener("keydown",event=>{if(event.key==="Escape")setOpen(false);});
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"&&aside.classList.contains("is-open"))setOpen(false,true);});
   aside.querySelectorAll("a").forEach(link=>link.addEventListener("click",()=>setOpen(false)));
   document.getElementById("theme-toggle")?.addEventListener("click",toggleTheme);
   try{const saved=localStorage.getItem("unbd-theme");if(saved==="light"||saved==="dark")document.documentElement.dataset.theme=saved;}catch{}
