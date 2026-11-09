@@ -63,7 +63,7 @@ jobs:
         run: |
           node --experimental-default-type=module --input-type=module <<'NODE'
           import assert from 'node:assert/strict';import {access,readFile} from 'node:fs/promises';import {searchKnowledge,FALLBACK_RESPONSE,getKnowledgeStats,tokenize} from './js/knowledge/index.js';import {professionalIspKnowledge,professionalIspKnowledgeMeta} from './js/knowledge/professional-isp.js';
-          for(const p of ['index.html','layout.html','profile.html','backend-url.json','scripts/codespaces-start.sh','scripts/publish-codespaces-backend-url.mjs','css/main.css','css/chat.css','css/navigation.css','js/config.js','js/app.js','js/chat-workspace.js','js/navigation.js','js/knowledge/index.js','js/knowledge/company.js','js/knowledge/internet.js','js/knowledge/billing.js','js/knowledge/security.js','js/knowledge/synonyms.js','js/knowledge/professional-isp.js','js/wizard.js','js/tools-page.js','js/admin-analytics.js','css/advanced-tools.css','css/network-config.css','css/auth.css','js/network-config.js','js/auth-session.js','js/workspace.js'])await access(p);
+          for(const p of ['index.html','layout.html','profile.html','admin-profile.html','backend-url.json','scripts/codespaces-start.sh','scripts/publish-codespaces-backend-url.mjs','css/main.css','css/chat.css','css/navigation.css','css/admin-profile.css','js/admin-profile.js','js/config.js','js/app.js','js/chat-workspace.js','js/navigation.js','js/knowledge/index.js','js/knowledge/company.js','js/knowledge/internet.js','js/knowledge/billing.js','js/knowledge/security.js','js/knowledge/synonyms.js','js/knowledge/professional-isp.js','js/wizard.js','js/tools-page.js','js/admin-analytics.js','css/advanced-tools.css','css/network-config.css','css/auth.css','js/network-config.js','js/auth-session.js','js/workspace.js'])await access(p);
           const app=await readFile('js/app.js','utf8'),cfg=await readFile('js/config.js','utf8');assert.match(app,/QUEUE_KEY/);assert.match(app,/clientEventId/);assert.match(app,/AbortController/);assert.match(app,/healthCheckPromise/);assert.match(cfg,/UNBD_API_BASE_URL/);const networkUi=await readFile('js/network-config.js','utf8');assert.doesNotMatch(networkUi,/localStorage/);assert.match(networkUi,/https:/);assert.match(networkUi,/connect-test/);const auth=await readFile('js/auth-session.js','utf8');assert.doesNotMatch(auth,/sessionStorage|localStorage/);assert.match(auth,/let sessionToken =/);assert.match(auth,/initializeNavigation/);assert.match(auth,/api\/auth\/login/);assert.match(auth,/api\/auth\/logout/);assert.match(auth,/api\/auth\/session/);assert.match(auth,/ensureAuthenticated/);
           const cases=[['হ্যালো','আসসালামু আলাইকুম'],['Unique Network BD','মাইজদী সদর'],['অফিস সময়সূচি','শনিবার'],['ইন্টারনেট নেই রাউটার ONU restart','ONU/MC'],['MikroTik BDCOM OLT','MikroTik'],['bKash Nagad ONE Bank payment','bKash'],['TrxID verify','Transaction ID'],['ফেসবুক অ্যাকাউন্ট রিকভারি','Account Recovery'],['ফিশিং প্রতারণা','ফিশিং'],['black hat hacking','Black-hat']];for(const[q,w]of cases){const r=searchKnowledge(q);assert.equal(r.matched,true);assert.ok(r.response.includes(w));}const banglish=tokenize('net slow');assert.ok(banglish.includes('internet_slow'));assert.ok(banglish.includes('ইন্টারনেট'));const billing=tokenize('taka koto');assert.ok(billing.includes('billing_amount'));assert.ok(billing.includes('বিল'));const f=searchKnowledge('আজকের আবহাওয়া');assert.equal(f.matched,false);assert.equal(f.response,FALLBACK_RESPONSE);assert.equal(professionalIspKnowledge.length,940);assert.equal(professionalIspKnowledgeMeta.topicCount,188);assert.equal(professionalIspKnowledgeMeta.companyDataRequired,330);assert.equal(professionalIspKnowledgeMeta.generalGuidance,610);assert.equal(new Set(professionalIspKnowledge.map(x=>x.id)).size,940);assert.equal(getKnowledgeStats().documents,952);assert.equal(getKnowledgeStats().professionalCards,940);for(const [q,category] of [['LOS red indicator','onu'],['PPPoE discovery','advanced'],['area-wide outage','emergency'],['ticket priority','tickets']]){const r=searchKnowledge(q);assert.equal(r.matched,true,`knowledge query should match: ${q}`);assert.equal(r.category,category,`knowledge category should match: ${q}`);}console.log('PASS: frontend modules, offline queue safeguards and 940-card ISP knowledge expansion');
           NODE
@@ -85,6 +85,7 @@ jobs:
             echo "Browser regression pass $run/3"
             node tests/profile.e2e.mjs
             node tests/workspace.e2e.mjs
+            node tests/menu.e2e.mjs
           done
   build:
     runs-on: ubuntu-latest
@@ -95,7 +96,7 @@ jobs:
       - name: Stage static frontend only
         run: |
           rm -rf _site && mkdir -p _site
-          cp index.html layout.html profile.html _site/
+          cp index.html layout.html profile.html admin-profile.html _site/
           cp -R css js _site/
           touch _site/.nojekyll
           test -f _site/index.html && test -f _site/js/config.js
@@ -152,6 +153,9 @@ jobs:
           }
           fetch_page "$SITE_URL/" /tmp/chatbot-home.html
           fetch_page "$SITE_URL/profile.html" /tmp/chatbot-profile.html
+          curl --fail --silent --show-error --location --max-time 20 "$SITE_URL/admin-profile.html" -o /tmp/chatbot-admin-profile.html
+          grep -q 'Admin Profile | Unique Network BD' /tmp/chatbot-admin-profile.html
+          grep -q './js/admin-profile.js' /tmp/chatbot-admin-profile.html
           grep -q 'Unique Network BD' /tmp/chatbot-home.html
           grep -q 'Chatbot Profile | Unique Network BD' /tmp/chatbot-profile.html
           grep -q './js/workspace.js' /tmp/chatbot-profile.html
@@ -178,6 +182,10 @@ jobs:
         env:
           SITE_URL: https://uniquenetworkbd.github.io/Chatbot
         run: node tests/live-profile.e2e.mjs
+      - name: Run live navigation and Admin Profile route verification
+        env:
+          SITE_URL: https://uniquenetworkbd.github.io/Chatbot
+        run: node tests/live-menu.e2e.mjs
       - name: Verify live Codespaces backend health, schema and conversation API
         run: |
           set -euo pipefail
