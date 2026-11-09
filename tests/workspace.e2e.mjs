@@ -49,6 +49,7 @@ try{
  if(await page.locator(".history-entry").count()!==2)throw Error("Restore did not restore messages");
  await page.locator("#app-sidebar .nav-link[data-page='new-chat']").click();await page.waitForURL(/index\.html/);
  if(await page.evaluate(()=>JSON.parse(localStorage.getItem("unbd-chat-history-v1")||"[]").length)!==0)throw Error("New Chat did not start a clean local conversation");
+ if(await page.evaluate(()=>JSON.parse(localStorage.getItem("unbd-chat-archived-v1")||"[]").length)!==1)throw Error("New Chat did not preserve the previous conversation in Archived");
  if(errors.length)throw Error("Browser runtime errors: "+errors.join(" | "));
  console.log("PASS: topic selection, API message persistence, History-page search, local archive/restore, clean New Chat and clean navigation.");
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
