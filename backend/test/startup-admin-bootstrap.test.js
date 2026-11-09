@@ -27,7 +27,14 @@ async function waitForHealth(baseUrl, child) {
     if (child.exitCode !== null) throw new Error("Server exited before becoming healthy.");
     try {
       const response = await fetch(baseUrl + "/api/health");
-      if (response.ok) return;
+      if (response.ok) {
+        const health = await response.json();
+        assert.equal(health.status, "ok");
+        assert.equal(health.database, "ok");
+        assert.equal(health.service, "unique-network-chatbot-api");
+        assert.equal(health.schemaVersion, 5);
+        return health;
+      }
     } catch {}
     await new Promise(resolve => setTimeout(resolve, 100));
   }
