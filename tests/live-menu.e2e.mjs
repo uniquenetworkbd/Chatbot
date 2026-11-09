@@ -3,18 +3,30 @@ const site=(process.env.SITE_URL||"https://uniquenetworkbd.github.io/Chatbot").r
 const browser=await chromium.launch({headless:true});
 try{
 const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on("pageerror",e=>errors.push(e.message));
+await page.addInitScript(()=>localStorage.setItem("unbd-chat-history-v1",JSON.stringify([{role:"user",text:"Live verification phrase for archive",timestamp:Date.now()},{role:"assistant",text:"Live archive restore verification",timestamp:Date.now()}])));
 const home=await page.goto(site+"/",{waitUntil:"networkidle",timeout:60000});if(!home?.ok())throw Error("Live homepage HTTP "+home?.status());
 await page.locator("#menu-toggle").click();const sidebar=page.locator("#app-sidebar");
-const labels=await sidebar.locator(".nav-link .nav-label").allTextContents();
-const expected=["চ্যাট","নতুন চ্যাট","Chatbot Profile","চ্যাট ইতিহাস","Archived","Network Tools","Settings","Admin Profile"];
+const labels=await sidebar.locator(".nav-link .nav-label").allTextContents(),expected=["চ্যাট","নতুন চ্যাট","Chatbot Profile","চ্যাট ইতিহাস","Archived","Network Tools","Settings","Admin Profile"];
 if(JSON.stringify(labels)!==JSON.stringify(expected))throw Error("Live menu labels/order mismatch: "+JSON.stringify(labels));
 if(await sidebar.locator(".conversation-workspace,.history-search,.workspace-status").count())throw Error("Live sidebar still contains conversation heading, search or backend status");
 if((await sidebar.innerText()).includes("Backend endpoint পাওয়া যাচ্ছে না"))throw Error("Live backend endpoint error is shown in menu");
 const heights=await sidebar.locator(".nav-link").evaluateAll(nodes=>nodes.map(n=>Math.round(n.getBoundingClientRect().height)));
 if(new Set(heights).size!==1)throw Error("Live menu buttons have inconsistent dimensions: "+heights.join(","));
-const history=await page.request.get(site+"/layout.html?page=history"),archived=await page.request.get(site+"/layout.html?page=archived"),admin=await page.request.get(site+"/admin-profile.html");
-if(!history.ok()||!archived.ok()||!admin.ok())throw Error("History, Archived or Admin Profile page is not deployed");
+await sidebar.locator(".nav-link[data-page='new-chat']").click();await page.waitForURL(/index\.html/);
+const state=await page.evaluate(()=>({active:JSON.parse(localStorage.getItem("unbd-chat-history-v1")||"[]"),archived:JSON.parse(localStorage.getItem("unbd-chat-archived-v1")||"[]")}));
+if(state.active.length!==0||state.archived.length!==1||state.archived[0].messages.length!==2)throw Error("Live New Chat did not preserve the previous transcript in Archived");
+await page.goto(site+"/layout.html?page=history",{waitUntil:"networkidle"});
+const search=page.getByRole("searchbox",{name:"চ্যাট ইতিহাসে খুঁজুন"});await search.fill("verification phrase");
+if(await page.locator(".archived-history-entry").count()!==1)throw Error("Live History search could not find archived messages");
+await page.goto(site+"/layout.html?page=archived",{waitUntil:"networkidle"});
+if(await page.locator(".archived-entry").count()!==1)throw Error("Live Archived page did not show the archived conversation");
+await page.getByRole("button",{name:"Restore"}).click();await page.waitForURL(/layout\.html\?page=history/);
+if(await page.locator(".history-entry:not(.archived-history-entry)").count()!==2)throw Error("Live Restore did not restore the conversation to History");
+const [admin,history,archived]=await Promise.all([page.request.get(site+"/admin-profile.html"),page.request.get(site+"/layout.html?page=history"),page.request.get(site+"/layout.html?page=archived")]);
+if(!admin.ok()||!history.ok()||!archived.ok())throw Error("History, Archived or Admin Profile page is not deployed");
 if(!(await admin.text()).includes("admin-profile.js"))throw Error("Admin Profile script is missing from deployed page");
+await page.goto(site+"/admin-profile.html",{waitUntil:"networkidle"});
+await page.locator("#auth-gateway").waitFor({timeout:15000});
 if(errors.length)throw Error("Live browser errors: "+errors.join(" | "));
-console.log("PASS: live menu has eight uniform full-width navigation items; no embedded conversation/search/backend error; History, Archived and Admin Profile pages are deployed.");
+console.log("PASS: live menu layout; no embedded chat/search/backend error; New Chat auto-archive; History search across archives; Archived restore; Admin Profile route and authentication gate.");
 }finally{await browser.close();}
