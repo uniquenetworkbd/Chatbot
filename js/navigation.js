@@ -56,7 +56,7 @@ function initializeNavigation(){
   const {aside,backdrop,close}=elements,toggle=document.getElementById("menu-toggle");
   toggle?.setAttribute("aria-controls","app-sidebar");
   initializeAuthControls();
-  const setOpen=open=>{aside.classList.toggle("is-open",open);aside.classList.toggle("is-closed",!open);backdrop.classList.toggle("is-visible",open);document.body.classList.toggle("nav-open",open);toggle?.setAttribute("aria-expanded",String(open));};
+  const setOpen=(open,restoreFocus=false)=>{aside.classList.toggle("is-open",open);aside.classList.toggle("is-closed",!open);backdrop.classList.toggle("is-visible",open);document.body.classList.toggle("nav-open",open);toggle?.setAttribute("aria-expanded",String(open));if(open)close.focus();else if(restoreFocus)toggle?.focus();};
   toggle?.addEventListener("click",event=>{event.stopPropagation();setOpen(!aside.classList.contains("is-open"));});
   close.addEventListener("click",()=>setOpen(false));backdrop.addEventListener("click",()=>setOpen(false));
   document.addEventListener("click",event=>{if(!aside.classList.contains("is-open"))return;const target=event.target;if(!(target instanceof Node))return;if(!aside.contains(target)&&!toggle?.contains(target))setOpen(false);});
