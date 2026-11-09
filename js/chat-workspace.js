@@ -91,8 +91,9 @@ async function initialize(){
  const form=$("#chat-form");form?.addEventListener("submit",()=>{const topic=window.__unbdSelectedTopic?.id||null;const original=$("#message-input")?.value||"";window.__unbdPendingTopic=topic;window.__unbdPendingText=original;});
  window.addEventListener("unbd:message",event=>{const detail=event.detail||{};detail.topicId=detail.topicId||window.__unbdPendingTopic||window.__unbdSelectedTopic?.id||null;detail.conversationId=detail.conversationId||window.__unbdCurrentConversationId||activeId;saving=saving.then(()=>persistMessage(detail));});
  try{
-  await ensureSession();const data=await api("/api/conversations");await refreshHistory();
-  if(data.conversations.length){await loadConversation(data.conversations[0].id);}
+  await ensureSession();const forceNew=window.__unbdStartNewConversation===true;window.__unbdStartNewConversation=false;const data=await api("/api/conversations");await refreshHistory();
+  if(forceNew){await createConversation();}
+  else if(data.conversations.length){await loadConversation(data.conversations[0].id);}
   else{
    const legacy=Array.from($("#message-list")?.querySelectorAll(".message")||[]).map(n=>({sender:n.classList.contains("user")?"user":"assistant",content:n.querySelector(".message-body")?.textContent||n.textContent}));
    await createConversation();
