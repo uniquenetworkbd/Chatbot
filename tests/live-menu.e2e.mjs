@@ -5,6 +5,11 @@ try{
 const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on("pageerror",e=>errors.push(e.message));
 await page.addInitScript(()=>{if(!sessionStorage.getItem("unbd-live-menu-seeded")){localStorage.setItem("unbd-chat-history-v1",JSON.stringify([{role:"user",text:"Live verification phrase for archive",timestamp:Date.now()},{role:"assistant",text:"Live archive restore verification",timestamp:Date.now()}]));sessionStorage.setItem("unbd-live-menu-seeded","1");}});
 const home=await page.goto(site+"/",{waitUntil:"networkidle",timeout:60000});if(!home?.ok())throw Error("Live homepage HTTP "+home?.status());
+await page.keyboard.press("Tab");if(await page.evaluate(()=>document.activeElement?.className)!=="skip-link")throw Error("Live skip link is not the first keyboard target");
+await page.keyboard.press("Enter");if(await page.evaluate(()=>document.activeElement?.id)!=="main-content")throw Error("Live skip link did not focus main content");
+await page.locator("#menu-toggle").click();if(await page.evaluate(()=>document.activeElement?.className)!=="sidebar-close")throw Error("Live menu did not focus close control");
+if(await page.locator("#menu-toggle").getAttribute("aria-controls")!=="app-sidebar")throw Error("Live menu aria-controls is missing");
+await page.keyboard.press("Escape");if(await page.locator("#menu-toggle").getAttribute("aria-expanded")!=="false"||await page.evaluate(()=>document.activeElement?.id)!=="menu-toggle")throw Error("Live Escape did not restore menu focus");
 await page.locator("#menu-toggle").click();const sidebar=page.locator("#app-sidebar");
 const labels=await sidebar.locator(".nav-link .nav-label").allTextContents(),expected=["চ্যাট","নতুন চ্যাট","Chatbot Profile","চ্যাট ইতিহাস","Archived","Network Tools","Settings","Admin Profile"];
 if(JSON.stringify(labels)!==JSON.stringify(expected))throw Error("Live menu labels/order mismatch: "+JSON.stringify(labels));
