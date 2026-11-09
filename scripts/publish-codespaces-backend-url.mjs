@@ -50,7 +50,7 @@ if (!repository || !token || !codespace || !/^[a-z0-9.-]+$/i.test(domain)) {
       try {
         const response = await fetch(healthUrl, { cache: "no-store", signal: AbortSignal.timeout(4000) });
         const health = await response.json();
-        if (response.ok && health.status === "ok" && health.database === "ok") return;
+        if (response.ok && health.status === "ok" && health.database === "ok" && health.service === "unique-network-chatbot-api" && health.schemaVersion === 5) return;
       } catch {}
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
