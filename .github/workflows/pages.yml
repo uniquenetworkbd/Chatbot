@@ -56,6 +56,15 @@ jobs:
           assert.match(config, /manifest.status === "active"/);
           assert.match(config, /await isHealthy\(discovered\)/);
           assert.match(app, /await getApiBaseUrl\(\)/);
+          assert.match(app, /d\.service!=="unique-network-chatbot-api"\|\|d\.schemaVersion!==5/);
+          const nav = await readFile("js/navigation.js", "utf8");
+          const home = await readFile("index.html", "utf8");
+          const layout = await readFile("layout.html", "utf8");
+          assert.match(nav, /aria-controls","app-sidebar"/);
+          assert.match(nav, /close\.focus\(\)/);
+          assert.match(nav, /toggle\?\.focus\(\)/);
+          assert.match(home, /href="#main-content"/);
+          assert.match(layout, /href="#main-content"/);
           assert.match(auth, /await getApiBaseUrl\(\)/);
           assert.equal(dev.portsAttributes["3000"].visibility, "public");
           assert.equal(dev.customizations.codespaces.repositories["uniquenetworkbd/Chatbot"].permissions.contents, "write");
