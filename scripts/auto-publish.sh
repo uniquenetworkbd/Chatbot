@@ -42,7 +42,7 @@ CONVERSATIONS_URL="${API_BASE}/api/conversations"
 export HEALTH_URL CONVERSATIONS_URL
 health_ok=0
 route_ok=0
-if node -e 'fetch(process.env.HEALTH_URL,{signal:AbortSignal.timeout(3000),cache:"no-store"}).then(async r=>{const j=await r.json();process.exit(r.ok&&j.status==="ok"&&j.database==="ok"?0:1)}).catch(()=>process.exit(1)' >/dev/null 2>&1; then
+if node -e 'fetch(process.env.HEALTH_URL,{signal:AbortSignal.timeout(3000),cache:"no-store"}).then(async r=>{const j=await r.json();process.exit(r.ok&&j.status==="ok"&&j.database==="ok"&&j.service==="unique-network-chatbot-api"&&j.schemaVersion===5?0:1)}).catch(()=>process.exit(1)' >/dev/null 2>&1; then
   health_ok=1
   route_status="$(node -e 'fetch(process.env.CONVERSATIONS_URL,{signal:AbortSignal.timeout(3000),cache:"no-store"}).then(r=>{console.log(r.status)}).catch(()=>console.log("000"))')"
   [[ "$route_status" == "401" ]] && route_ok=1
@@ -63,7 +63,7 @@ fi
 
 healthy=0
 for attempt in $(seq 1 60); do
-  if node -e 'fetch(process.env.HEALTH_URL,{signal:AbortSignal.timeout(3500),cache:"no-store"}).then(async r=>{const j=await r.json();process.exit(r.ok&&j.status==="ok"&&j.database==="ok"?0:1)}).catch(()=>process.exit(1))' >/dev/null 2>&1; then
+  if node -e 'fetch(process.env.HEALTH_URL,{signal:AbortSignal.timeout(3500),cache:"no-store"}).then(async r=>{const j=await r.json();process.exit(r.ok&&j.status==="ok"&&j.database==="ok"&&j.service==="unique-network-chatbot-api"&&j.schemaVersion===5?0:1)}).catch(()=>process.exit(1))' >/dev/null 2>&1; then
     healthy=1
     break
   fi
