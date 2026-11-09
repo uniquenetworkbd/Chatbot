@@ -10,6 +10,13 @@ try {
   const requestedUrl = new URL(window.location.href);
   if (requestedUrl.searchParams.get("new") === "1") {
     window.__unbdStartNewConversation = true;
+    const previous = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    if (Array.isArray(previous) && previous.length) {
+      const archived = JSON.parse(localStorage.getItem(ARCHIVE_KEY) || "[]");
+      const safeArchive = Array.isArray(archived) ? archived : [];
+      safeArchive.unshift({ id: globalThis.crypto?.randomUUID?.() || "archive-" + Date.now(), archivedAt: new Date().toISOString(), messages: previous });
+      localStorage.setItem(ARCHIVE_KEY, JSON.stringify(safeArchive));
+    }
     localStorage.removeItem(STORAGE_KEY);
     requestedUrl.searchParams.delete("new");
     window.history.replaceState(null, "", requestedUrl.pathname + requestedUrl.search + requestedUrl.hash);
