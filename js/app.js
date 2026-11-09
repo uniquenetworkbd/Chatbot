@@ -5,6 +5,7 @@ import { authHeaders } from "./auth-session.js";
 const STORAGE_KEY = "unbd-chat-history-v1";
 const MAX_HISTORY = 60;
 const SESSION_KEY = "unbd-chat-session-v1";
+const ARCHIVE_KEY = "unbd-chat-archived-v1";
 // A menu-triggered New Chat starts a clean browser-local conversation without requiring the API.
 try {
   const requestedUrl = new URL(window.location.href);
