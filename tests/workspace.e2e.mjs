@@ -15,7 +15,7 @@ try{
  await page.route("https://api.test.invalid/**",async route=>{
   const req=route.request(),url=new URL(req.url()),p=url.pathname,method=req.method();
   const json=(status,data)=>route.fulfill({status,contentType:"application/json",body:JSON.stringify(data)});
-  if(p==="/api/health")return json(200,{status:"ok",database:"ok"});
+  if(p==="/api/health")return json(200,{status:"ok",database:"ok",service:"unique-network-chatbot-api",schemaVersion:5});
   if(p==="/api/conversations/guest-sessions"&&method==="POST")return json(201,{token:state.token,scope:"this-browser-profile"});
   if(p==="/api/conversations"&&method==="GET")return json(200,{conversations:state.conversations.filter(x=>x.status==="active").sort((a,b)=>b.updated_at.localeCompare(a.updated_at))});
   if(p==="/api/conversations"&&method==="POST"){const body=req.postDataJSON(),id="conversation-"+state.next++,row={id,title:body.title||"নতুন কথোপকথন",topic_id:body.topicId,status:"active",created_at:new Date().toISOString(),updated_at:new Date().toISOString()};state.conversations.push(row);state.messages.set(id,[]);return json(201,{conversation:row});}
