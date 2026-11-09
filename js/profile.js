@@ -329,7 +329,7 @@ async function renderLiveMonitoring(root) {
     const response = await fetch(base + "/api/health", { cache: "no-store", credentials: "omit", signal: AbortSignal.timeout(8000) });
     const elapsed = Math.round(performance.now() - started);
     const data = await response.json();
-    if (!response.ok || data.status !== "ok" || data.database !== "ok") throw new Error("Health response is not healthy");
+    if (!response.ok || data.status !== "ok" || data.database !== "ok" || data.service !== "unique-network-chatbot-api" || data.schemaVersion !== 5) throw new Error("Health response or schema contract is not healthy");
     status.textContent = "LIVE · Backend healthy · Database " + data.database;
     status.dataset.state = "online";
     healthCard.replaceChildren(
