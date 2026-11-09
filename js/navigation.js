@@ -1,6 +1,8 @@
 import { initializeToolsPage } from "./tools-page.js";
 import { initializeAuthControls } from "./auth-session.js";
 import { initializeProfilePage } from "./profile.js";
+import { initializeNetworkConfig } from "./network-config.js";
+import { ensureAuthenticated } from "./auth-session.js";
 
 const NAV_ITEMS = [
   {id:"chat",label:"চ্যাট",icon:"◈",href:"./index.html",page:"chat"},
@@ -130,6 +132,13 @@ function renderExtensionPage(){
   if(document.body.dataset.page!=="extension")return;
   const page=currentPage(),title=document.getElementById("page-title"),content=document.getElementById("page-content");if(!content)return;
   content.replaceChildren();
+  if(page==="network-config"){
+    title.textContent="Router & OLT Integration";
+    const mount=()=>{initializeAuthControls();initializeNetworkConfig(content);};
+    window.addEventListener("unbd:admin-authenticated",mount,{once:true});
+    void ensureAuthenticated().then(authenticated=>{if(authenticated)mount();});
+    return;
+  }
   if(page==="tools"){title.textContent="Network Tools";initializeToolsPage(content);return;}
   if(page==="profile"){title.textContent="Chatbot Profile";initializeProfilePage(content);return;}
   if(page==="history"){renderHistoryPage(content,title);return;}
