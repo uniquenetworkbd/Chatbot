@@ -21,7 +21,8 @@ await page.goto("http://127.0.0.1:4175/layout.html?page=history",{waitUntil:"net
 const search=page.getByRole("searchbox",{name:"চ্যাট ইতিহাসে খুঁজুন"});await search.fill("router");
 if(await page.locator(".history-entry").count()!==1)throw Error("History page search failed");
 await search.fill("");await page.getByRole("button",{name:"বর্তমান চ্যাট আর্কাইভ করুন"}).click();
-if(await page.locator(".history-entry").count()!==0)throw Error("Archive did not clear active history");
+if(await page.locator(".history-entry:not(.archived-history-entry)").count()!==0||await page.locator(".archived-history-entry").count()!==2)throw Error("History page did not move messages into Archived");
+  await search.fill("router");if(await page.locator(".archived-history-entry").count()!==1)throw Error("History search could not find an archived message");await search.fill("");
 await page.goto("http://127.0.0.1:4175/layout.html?page=archived",{waitUntil:"networkidle"});
 if(await page.locator(".archived-entry").count()!==1)throw Error("Archived page did not show archived conversation");
 await page.getByRole("button",{name:"Restore"}).click();await page.waitForURL("**/layout.html?page=history");
