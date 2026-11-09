@@ -5,6 +5,16 @@ import { authHeaders } from "./auth-session.js";
 const STORAGE_KEY = "unbd-chat-history-v1";
 const MAX_HISTORY = 60;
 const SESSION_KEY = "unbd-chat-session-v1";
+// A menu-triggered New Chat starts a clean browser-local conversation without requiring the API.
+try {
+  const requestedUrl = new URL(window.location.href);
+  if (requestedUrl.searchParams.get("new") === "1") {
+    localStorage.removeItem(STORAGE_KEY);
+    requestedUrl.searchParams.delete("new");
+    window.history.replaceState(null, "", requestedUrl.pathname + requestedUrl.search + requestedUrl.hash);
+  }
+} catch {}
+
 
 const QUICK_REPLIES = { internet:["ইন্টারনেটের গতি কম","রাউটার কীভাবে restart করব?","ONU-তে LOS লাইট জ্বলছে"], billing:["বিকাশে বিল পেমেন্ট","আমার বিল কত?","পেমেন্টের রসিদ"], company:["অফিসের ঠিকানা","যোগাযোগের নম্বর","ইন্টারনেট প্যাকেজ"], security:["ফিশিং থেকে বাঁচব কীভাবে?","অ্যাকাউন্ট সুরক্ষা","পাসওয়ার্ড পরিবর্তন"] };
 const DEFAULT_REPLIES = ["ইন্টারনেট সংযোগ সমস্যা","বিল পেমেন্ট","অফিসের ঠিকানা"];
