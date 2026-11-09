@@ -97,6 +97,7 @@ jobs:
             node tests/profile.e2e.mjs
             node tests/workspace.e2e.mjs
             node tests/menu.e2e.mjs
+            node tests/offline-chat.e2e.mjs
           done
   build:
     runs-on: ubuntu-latest
