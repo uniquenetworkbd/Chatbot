@@ -36,6 +36,8 @@ jobs:
           assert.ok(script.includes("npm --prefix"));
           assert.ok(script.includes("node \"$ROOT_DIR/backend/server.js\""));
           assert.ok(script.includes("/api/health"));
+          assert.ok(script.includes('j.service==="unique-network-chatbot-api"'));
+          assert.ok(script.includes("j.schemaVersion===5"));
           assert.ok(script.includes("/contents/backend-url.json"));
           assert.ok(script.includes('branch: "main"'));
           console.log("PASS: Codespaces startup script syntax and automatic publish wiring");
