@@ -4,3 +4,5 @@
 body[data-page="extension"] .app-main{overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;}
 body[data-page="extension"] .app-main>.topbar{position:sticky;top:0;flex:0 0 auto;}
 body[data-page="extension"] .app-main>.extension-content{flex:0 0 auto;min-height:min-content;}
+
+.skip-link{position:fixed;top:.5rem;left:.5rem;z-index:1000;padding:.75rem 1rem;border:2px solid var(--accent);border-radius:.65rem;background:var(--surface);color:var(--text);font-weight:700;transform:translateY(-160%);transition:transform .15s ease}.skip-link:focus{transform:translateY(0)}#main-content:focus{outline:none}@media(prefers-reduced-motion:reduce){.skip-link{transition:none}}
