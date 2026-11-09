@@ -9,6 +9,7 @@ const SESSION_KEY = "unbd-chat-session-v1";
 try {
   const requestedUrl = new URL(window.location.href);
   if (requestedUrl.searchParams.get("new") === "1") {
+    window.__unbdStartNewConversation = true;
     localStorage.removeItem(STORAGE_KEY);
     requestedUrl.searchParams.delete("new");
     window.history.replaceState(null, "", requestedUrl.pathname + requestedUrl.search + requestedUrl.hash);
