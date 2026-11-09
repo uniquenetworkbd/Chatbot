@@ -86,16 +86,6 @@ async function exportConversation(id){
  try{const data=await api("/api/conversations/"+id+"/export");const blob=new Blob(["\\uFEFF",JSON.stringify(data,null,2)],{type:"application/json;charset=utf-8"});const url=URL.createObjectURL(blob);const a=el("a");a.href=url;a.download="unbd-conversation-"+id+".json";document.body.append(a);a.click();a.remove();URL.revokeObjectURL(url);}
  catch(e){notify("Export failed: "+e.message);}
 }
-function addSidebarTools(){
- const sidebar=$("#app-sidebar");if(!sidebar||$("#conversation-workspace"))return;
- const section=el("section","conversation-workspace");section.id="conversation-workspace";
- const top=el("div","conversation-workspace-top");top.append(el("strong","","কথোপকথন"));
- const fresh=el("button","new-chat-button","+ New Chat");fresh.type="button";fresh.addEventListener("click",async()=>{try{await createConversation();notify("নতুন কথোপকথন শুরু হয়েছে");}catch(e){notify(e.message);}});const archived=el("button","new-chat-button","Archived");archived.type="button";archived.addEventListener("click",()=>void refreshHistory("",true));top.append(fresh,archived);section.append(top);
- const search=el("input","history-search");search.type="search";search.placeholder="পুরোনো চ্যাট খুঁজুন...";search.setAttribute("aria-label","কথোপকথন খুঁজুন");let timer;search.addEventListener("input",()=>{clearTimeout(timer);timer=setTimeout(()=>void refreshHistory(search.value.trim()),180);});section.append(search);
- const list=el("div","conversation-history-list");list.id="conversation-history-list";section.append(list);
- const status=el("small","workspace-status");status.id="workspace-status";status.textContent="History সংযোগ হচ্ছে...";section.append(status);
- sidebar.insertBefore(section,sidebar.querySelector(".sidebar-footer"));
-}
 async function initialize(){
  addComposerMenu();addSidebarTools();
  const form=$("#chat-form");form?.addEventListener("submit",()=>{const topic=window.__unbdSelectedTopic?.id||null;const original=$("#message-input")?.value||"";window.__unbdPendingTopic=topic;window.__unbdPendingText=original;});
