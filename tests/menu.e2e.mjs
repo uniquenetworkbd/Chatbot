@@ -1,0 +1,34 @@
+import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { extname, join, normalize } from "node:path";
+import { chromium } from "playwright";
+const root=process.cwd(),mime={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",".css":"text/css; charset=utf-8",".json":"application/json"};
+const server=createServer(async(req,res)=>{try{const pathname=decodeURIComponent(new URL(req.url,"http://localhost").pathname);const file=normalize(join(root,pathname==="/"?"index.html":pathname.slice(1)));if(!file.startsWith(root)){res.writeHead(403).end();return;}const body=await readFile(file);res.writeHead(200,{"Content-Type":mime[extname(file)]||"application/octet-stream"}).end(body);}catch{res.writeHead(404).end("Not found");}});
+await new Promise(resolve=>server.listen(4175,"127.0.0.1",resolve));
+const browser=await chromium.launch({headless:true});
+try{
+const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on("pageerror",e=>errors.push(e.message));
+await page.goto("http://127.0.0.1:4175/",{waitUntil:"networkidle"});await page.locator("#menu-toggle").click();
+const sidebar=page.locator("#app-sidebar"),labels=await sidebar.locator(".nav-link .nav-label").allTextContents(),expected=["চ্যাট","নতুন চ্যাট","Chatbot Profile","চ্যাট ইতিহাস","Archived","Network Tools","Settings","Admin Profile"];
+if(JSON.stringify(labels)!==JSON.stringify(expected))throw Error("Navigation labels/order mismatch: "+JSON.stringify(labels));
+if(await sidebar.locator(".conversation-workspace,.history-search,.workspace-status").count())throw Error("Conversation controls/status/search remain inside navigation");
+if(await sidebar.locator(".nav-link").evaluateAll(nodes=>new Set(nodes.map(n=>Math.round(n.getBoundingClientRect().height))).size)!==1)throw Error("Menu button heights are inconsistent");
+if((await sidebar.innerText()).includes("Backend endpoint পাওয়া যাচ্ছে না"))throw Error("Backend error leaked into menu");
+await page.locator("#app-sidebar .nav-link[data-page='new-chat']").click();await page.waitForURL("**/index.html");
+if(await page.evaluate(()=>JSON.parse(localStorage.getItem("unbd-chat-history-v1")||"[]").length)!==0)throw Error("New Chat did not clear active local conversation");
+await page.evaluate(()=>localStorage.setItem("unbd-chat-history-v1",JSON.stringify([{role:"user",text:"Internet speed slow",timestamp:Date.now()},{role:"assistant",text:"Check router signal",timestamp:Date.now()}])));
+await page.goto("http://127.0.0.1:4175/layout.html?page=history",{waitUntil:"networkidle"});
+const search=page.getByRole("searchbox",{name:"চ্যাট ইতিহাসে খুঁজুন"});await search.fill("router");
+if(await page.locator(".history-entry").count()!==1)throw Error("History page search failed");
+await search.fill("");await page.getByRole("button",{name:"বর্তমান চ্যাট আর্কাইভ করুন"}).click();
+if(await page.locator(".history-entry").count()!==0)throw Error("Archive did not clear active history");
+await page.goto("http://127.0.0.1:4175/layout.html?page=archived",{waitUntil:"networkidle"});
+if(await page.locator(".archived-entry").count()!==1)throw Error("Archived page did not show archived conversation");
+await page.getByRole("button",{name:"Restore"}).click();await page.waitForURL("**/layout.html?page=history");
+if(await page.locator(".history-entry").count()!==2)throw Error("Restore did not restore history");
+await page.goto("http://127.0.0.1:4175/admin-profile.html",{waitUntil:"networkidle"});
+if(!(await page.title()).includes("Admin Profile"))throw Error("Admin Profile page title missing");
+if(await page.locator("#auth-gateway").count()!==1)throw Error("Admin Profile auth gate missing");
+if(errors.length)throw Error("Browser runtime errors: "+errors.join(" | "));
+console.log("PASS: navigation consistency, New Chat, History search, archive/restore, Admin Profile route/auth gate.");
+}finally{await browser.close();await new Promise(resolve=>server.close(resolve));}
