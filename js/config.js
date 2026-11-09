@@ -27,7 +27,7 @@ async function isHealthy(base) {
     });
     if (!response.ok) return false;
     const data = await response.json();
-    return data.status === "ok" && data.database === "ok";
+    return data.status === "ok" && data.database === "ok" && data.service === "unique-network-chatbot-api" && data.schemaVersion === 5;
   } catch {
     return false;
   } finally {
