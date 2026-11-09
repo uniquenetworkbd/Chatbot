@@ -8,7 +8,13 @@ await new Promise(resolve=>server.listen(4175,"127.0.0.1",resolve));
 const browser=await chromium.launch({headless:true});
 try{
 const page=await browser.newPage({viewport:{width:390,height:844}}),errors=[];page.on("pageerror",e=>errors.push(e.message));
-await page.goto("http://127.0.0.1:4175/",{waitUntil:"networkidle"});await page.locator("#menu-toggle").click();
+await page.goto("http://127.0.0.1:4175/",{waitUntil:"networkidle"});
+await page.keyboard.press("Tab");if(await page.evaluate(()=>document.activeElement?.className)!=="skip-link")throw Error("Skip link is not first keyboard target");
+await page.keyboard.press("Enter");if(await page.evaluate(()=>document.activeElement?.id)!=="main-content")throw Error("Skip link did not focus main content");
+await page.locator("#menu-toggle").click();if(await page.evaluate(()=>document.activeElement?.className)!=="sidebar-close")throw Error("Opening menu did not focus its close button");
+if(await page.locator("#menu-toggle").getAttribute("aria-controls")!=="app-sidebar")throw Error("Menu toggle is missing aria-controls");
+await page.keyboard.press("Escape");if(await page.locator("#menu-toggle").getAttribute("aria-expanded")!=="false"||await page.evaluate(()=>document.activeElement?.id)!=="menu-toggle")throw Error("Escape did not close menu and restore focus");
+await page.locator("#menu-toggle").click();
 const sidebar=page.locator("#app-sidebar"),labels=await sidebar.locator(".nav-link .nav-label").allTextContents(),expected=["চ্যাট","নতুন চ্যাট","Chatbot Profile","চ্যাট ইতিহাস","Archived","Network Tools","Settings","Admin Profile"];
 if(JSON.stringify(labels)!==JSON.stringify(expected))throw Error("Navigation labels/order mismatch: "+JSON.stringify(labels));
 if(await sidebar.locator(".conversation-workspace,.history-search,.workspace-status").count())throw Error("Conversation controls/status/search remain inside navigation");
